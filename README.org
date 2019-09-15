@@ -1,3 +1,9 @@
 #+TITLE: Zdeta
 * Presentation
+Zdeta is a little High-level language inspired by Ruby, Python, Ocaml etc. The compiler is written in C.
 * Exapmles
+Here is the classical Hello world in Zdeta
+#+BEGIN_SRC
+print "Hello World!"
+#+END_SRC
+You can notice that there is no parentheses like in ocaml or ruby.
