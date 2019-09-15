@@ -3,11 +3,20 @@
 ** TODO Implements errors
 ** TODO Add floats
 ** TODO More operations (decrement, euclidian division, etc.)
+** TODO Add control structures (else, elif, for etc.)
+** TODO Add Strings ans chars
+** WAIT Add system interactions
+** WAIT Add files interactions
 * Side functions
 ** TODO Beautify the code
 ** TODO Simplify the code
 ** TODO Make an emacs mode
-** TODO Add comments
+** DONE Add comments
+** TODO Add command line interface
+** TODO Create a REPL
+** TODO Create an interpreter
 * Git Page
 ** DONE Setup the git page
 ** TODO Write a good README
+** TODO Write more examples
+** WAIT Create coreutils like programms (ls, little text editor)
