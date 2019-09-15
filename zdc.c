@@ -6,7 +6,7 @@
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; char value[50]; int type; int len;};
 char symb[10] = {'(',')','{','}',';','"','[',']','/'};
-char *funs[9] = {"let", "fun", "out", "while", "if", "else", "elif", "var", "end"};
+char *funs[9] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end"};
 char opps[7] = {'+', '/', '-', '=', '%','>','<'};
 struct lex pars[200];
 struct var vars[50];
@@ -58,7 +58,7 @@ int varind (char in[]){
     return -1;
 }
 
-int out(FILE *fp2, int i){
+int print(FILE *fp2, int i){
     i ++;
     int j = 0;
     if (strcmp(pars[i].name, "quote") == 0){
@@ -411,8 +411,8 @@ int main(){
     for (i = 0; i < 200; i++){
         switch (pars[i].type[0]){
             case 'F':
-                if (strcmp(pars[i].name, "out") == 0){
-                    i = out(fp2, i);
+                if (strcmp(pars[i].name, "print") == 0){
+                    i = print(fp2, i);
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
                     i = iff(fp2, i);
