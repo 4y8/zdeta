@@ -6,7 +6,7 @@
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; char value[50]; int type; int len;};
 char symb[10] = {'(',')','{','}',';','"','[',']'};
-char *funs[9] = {"let", "fun", "out", "for", "if", "else", "elif", "var", "end"};
+char *funs[9] = {"let", "fun", "out", "while", "if", "else", "elif", "var", "end"};
 char opps[7] = {'+', '/', '-', '=', '%','>','<'};
 struct lex pars[200];
 struct var vars[50];
@@ -244,50 +244,29 @@ int iff(FILE *fp2, int ind){
     else{
         ind++;
         if(strcmp(pars[ind].type, "Opp") == 0){
+            ind --;
+            fputs("    if(", fp2);
+            if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
+                fputs(pars[ind].name,fp2);
+            }
+
             switch (pars[ind].name[0]){
                 case '=' :
-                    ind --;
-                    fputs("    if(", fp2);
-                    if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                        fputs(pars[ind].name,fp2);
-                    }
                     fputs(" == ", fp2);
-                    ind += 2;
-                    if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                        fputs(pars[ind].name,fp2);
-                    }
-                    fputs("){\n", fp2);
-                    ind ++;
                     break;
                 case '<' :
-                    ind --;
-                    fputs("    if(", fp2);
-                    if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                        fputs(pars[ind].name,fp2);
-                    }
                     fputs(" < ", fp2);
-                    ind += 2;
-                    if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                        fputs(pars[ind].name,fp2);
-                    }
-                    fputs("){\n", fp2);
-                    ind ++;
                     break;
                 case '>' :
-                    ind --;
-                    fputs("    if(", fp2);
-                    if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                        fputs(pars[ind].name,fp2);
-                    }
                     fputs(" > ", fp2);
-                    ind += 2;
-                    if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                        fputs(pars[ind].name,fp2);
-                    }
-                    fputs("){\n", fp2);
-                    ind ++;
                     break;
             }
+            ind += 2;
+            if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
+                fputs(pars[ind].name,fp2);
+            }
+            fputs("){\n", fp2);
+            ind ++;
         }
     }
     return ind;
@@ -295,75 +274,40 @@ int iff(FILE *fp2, int ind){
 int foor (FILE *fp2, int ind){
    ind += 2;
    if(strcmp(pars[ind].type, "Opp") == 0){
+       ind --;
+       fputs("    while(", fp2);
+       if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
+           while ((strcmp(pars[ind].type, "Ter") != 0) && (pars[ind].name[0] != '=')){
+               fputs(pars[ind].name,fp2);
+               ind ++;
+           }
+       }
        switch (pars[ind].name[0]){
             case '=' :
-                ind --;
-                fputs("    while(", fp2);
-                if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                    while ((strcmp(pars[ind].type, "Ter") != 0) && (pars[ind].name[0] != '=')){
-                        fputs(pars[ind].name,fp2);
-                        ind ++;
-                    }
-                }
                 fputs(" == ", fp2);
-                ind ++;
-                if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                    while ((strcmp(pars[ind].type, "Ter") != 0)){
-                        fputs(pars[ind].name,fp2);
-                        ind ++;
-                    }
-                }
-                fputs("){\n", fp2);
-                //ind ++;
                 break;
             case '<' :
-                ind --;
-                fputs("    while(", fp2);
-                if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                    while ((strcmp(pars[ind].type, "Ter") != 0) && (pars[ind].name[0] != '<')){
-                        fputs(pars[ind].name,fp2);
-                        ind ++;
-                    }
-                }
                 fputs(" < ", fp2);
-                ind ++;
-                if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                    while ((strcmp(pars[ind].type, "Ter") != 0)){
-                        fputs(pars[ind].name,fp2);
-                        ind ++;
-                    }
-                }
-                fputs("){\n", fp2);
-                //ind ++;
                 break;
             case '>' :
-                ind --;
-                fputs("    while(", fp2);
-                if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                    while ((strcmp(pars[ind].type, "Ter") != 0) && (pars[ind].name[0] != '>')){
-                        fputs(pars[ind].name,fp2);
-                        ind ++;
-                    }
-                }
                 fputs(" > ", fp2);
-                ind ++;
-                if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                    while ((strcmp(pars[ind].type, "Ter") != 0)){
-                        fputs(pars[ind].name,fp2);
-                        ind ++;
-                    }
-                }
-                fputs("){\n", fp2);
-                //ind ++;
                 break;
-        }
+       }
+       ind ++;
+       if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
+           while ((strcmp(pars[ind].type, "Ter") != 0)){
+               fputs(pars[ind].name,fp2);
+               ind ++;
+           }
+       }
+       ind --;
+       fputs("){\n", fp2);
     }
    return ind;
 }
 
 int main(){
-    x[ 0 ] = 1;
-    FILE *fp1 = fopen ("sort.zd", "r");
+    FILE *fp1 = fopen ("Examples/brute_sort.zd", "r");
     FILE *fp2 = fopen("testhello.c", "w+");
     fputs ("#include <stdio.h>\n", fp2);
     fputs ("int main(){\n", fp2);
@@ -459,7 +403,7 @@ int main(){
                 else if (strcmp(pars[i].name, "end") == 0){
                     fputs("    }\n", fp2);
                 }
-                else if (strcmp(pars[i].name, "for") == 0){
+                else if (strcmp(pars[i].name, "while") == 0){
                     i = foor(fp2, i);
                 }
                 break;
