@@ -327,8 +327,8 @@ int main(){
             }
             l = ftell(fp1);
             fseek(fp1, j - 1, SEEK_SET);
-            fgets(str, i+1, fp1);
-            fseek(fp1, l-1, SEEK_SET);
+            fgets(str, i + 1, fp1);
+            fseek(fp1, l - 1, SEEK_SET);
             if (isfun(str) == 1){
                 strcpy(pars[k].type, "Fun");
             }
@@ -469,13 +469,11 @@ int main(){
                             j = varind(pars[i].name);
                             i ++;
                             i = assignvar(fp2, j, i);
-                            //i ++;
                         }
                     }
                 }
                 break;
         }
-        printf("%s %d\n", pars[i].name, i);
     }
     fclose(fp1);
     fputs("    return 0;\n", fp2);

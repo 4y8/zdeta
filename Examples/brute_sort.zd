@@ -1,13 +1,15 @@
-x = [3; 4; 1; 7; 0; 0]
+// Set up Variables
+array = [3; 4; 1; 7; 0; 0]
 i = 0
 j = 0
-k = 0
+buf = 0  // Set up a buffer variable
+
 while i < 6
     while j < 6
-        if x[j] > x[i]
-           k = x[i]
-           x[i] = x[j]
-           x[j] = k
+        if array[j] > array[i]
+           buf = array[i]
+           array[i] = array[j]
+           array[j] = buf
         end
         j++
     end
