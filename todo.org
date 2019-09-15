@@ -6,6 +6,8 @@
 * Side functions
 ** TODO Beautify the code
 ** TODO Simplify the code
+** TODO Make an emacs mode
+** TODO Add comments
 * Git Page
-** TODO Setup the git page
+** DONE Setup the git page
 ** TODO Write a good README
