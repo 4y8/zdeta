@@ -5,7 +5,7 @@
 
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; char value[50]; int type; int len;};
-char symb[10] = {'(',')','{','}',';','"','[',']'};
+char symb[10] = {'(',')','{','}',';','"','[',']','/'};
 char *funs[9] = {"let", "fun", "out", "while", "if", "else", "elif", "var", "end"};
 char opps[7] = {'+', '/', '-', '=', '%','>','<'};
 struct lex pars[200];
@@ -14,7 +14,7 @@ char conv[2] = {'a', '\0'};
 char str[50];
 int x[5];
 int issymb(char in){
-    for(int i = 0; i < 8; i++){
+    for(int i = 0; i < 9; i++){
         if (symb[i] == in){
             return 1;
         }
@@ -375,6 +375,24 @@ int main(){
                     case ';':
                         strcpy(pars[k].name, "semicolon");
                         break;
+                    case '/':
+                        l = ftell(fp1);
+                        c = fgetc(fp1);
+                        if(c == '/'){
+                            while (c != '\n'){
+                                c = fgetc(fp1);
+                            }
+                            k --;
+                            if(strcmp(pars[k].name, "Ter") != 0){
+                                k ++;
+                                strcpy(pars[k].type, "Ter");
+                                strcpy(pars[k].name, "Ter");
+                            }
+                        }
+                        else{
+                            strcpy(pars[k].name, "div");
+                            fseek(fp1, l - 1, SEEK_SET);
+                        }
                 }
                 k ++;
             }
