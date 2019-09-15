@@ -1,0 +1,17 @@
+x = [3; 4; 1; 7; 0; 0]
+i = 0
+j = 0
+k = 0
+while i < 6
+    while j < 6
+        if x[j] > x[i]
+           k = x[i]
+           x[i] = x[j]
+           x[j] = k
+        end
+        j++
+    end
+    i++
+    j = i
+end
+out x

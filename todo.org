@@ -1,0 +1,11 @@
+#+TITLE: TODO
+* Core functions
+** TODO Implements errors
+** TODO Add floats
+** TODO More operations (decrement, euclidian division, etc.)
+* Side functions
+** TODO Beautify the code
+** TODO Simplify the code
+* Git Page
+** TODO Setup the git page
+** TODO Write a good README
