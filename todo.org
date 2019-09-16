@@ -2,15 +2,25 @@
 * Core functions
 ** TODO Implements errors
 ** TODO Add floats
-** TODO More operations (decrement, euclidian division, etc.)
-** TODO Add control structures (else, elif, for etc.)
+** TODO More operations (decrement, euclidian division, etc.)[0/2]
++ [ ] decrement
++ [ ] euclidian division
+** TODO Add control structures (else, elif, for etc.)[0/4]
++ [ ] else
++ [ ] elif
++ [ ] for
++ [ ] switch/case
 ** TODO Add Strings ans chars
+** TODO Add user input
 ** WAIT Add system interactions
 ** WAIT Add files interactions
 * Side functions
 ** TODO Beautify the code
 ** TODO Simplify the code
 ** TODO Make an emacs mode
+** TODO Add more functions
++ [ ] swap
++ [ ] iter
 ** DONE Add comments
 ** TODO Add command line interface
 ** TODO Create a REPL

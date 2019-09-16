@@ -4,32 +4,14 @@
 #include <string.h>
 
 struct lex {char type[5]; char name[50];};
-struct var {char name[50]; char value[50]; int type; int len;};
-char symb[10] = {'(',')','{','}',';','"','[',']','/'};
+struct var {char name[50]; int type; int len;};
+char symb[10] = {'(',')','{','}',';','"','[',']'};
 char *funs[9] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end"};
 char opps[7] = {'+', '/', '-', '=', '%','>','<'};
 struct lex pars[200];
 struct var vars[50];
 char conv[2] = {'a', '\0'};
-char str[50];
-int x[5];
-int issymb(char in){
-    for(int i = 0; i < 9; i++){
-        if (symb[i] == in){
-            return 1;
-        }
-    }
-    return 0;
-}
-
-int isopp(char in){
-    for(int i = 0; i < 7; i++){
-        if (opps[i] == in){
-            return 1;
-        }
-    }
-    return 0;
-}
+char str[100];
 
 int isfun(char in[]){
     for(int i = 0; i < 9; i++){
@@ -43,6 +25,14 @@ int isfun(char in[]){
 int isvar(char in[]){
     for(int i = 0; i < 50; i++){
         if (strcmp(vars[i].name, in) == 0){
+            return 1;
+        }
+    }
+    return 0;
+}
+int isinchars(char in[], char check){
+    for(int i = 0; i < 10; i++){
+        if (in[i] == check){
             return 1;
         }
     }
@@ -78,7 +68,7 @@ int print(FILE *fp2, int i){
         if (vars[j].type == 0){
             fputs("    printf(", fp2);
             fputc('"', fp2);
-            if(isdigit(vars[j].value[0])){
+            if(vars[j].type == 0 ){
                 fputs("%d", fp2);
                 fputc('"', fp2);
                 fputc(',', fp2);
@@ -190,28 +180,18 @@ int assignarray(FILE *fp2, int find){
     fputs(";\n", fp2);
     return find;
 }
-int add(char val1[], char val2[]){
-    return atoi(val2) + atoi (val1);
-}
 
 void increment(FILE *fp2, char val[]){
-    int indvar = varind(val);
-    char buf[50];
-    int buff = 0;
-    buff = atoi(vars[indvar].value);
-    buff++;
-    sprintf(buf, "%d", buff);
-    strcpy(vars[indvar].value, buf);
     fputs("    ", fp2);
     fputs(val, fp2);
     fputs("++;\n", fp2);
 }
-
-int iff(FILE *fp2, int ind){
+int structure(FILE *fp2, int ind, char name[]){
     ind ++;
     int i = varind(pars[ind].name);
+    puts(pars[ind].name);
     if (1 == vars[i].type){
-        fputs("    if(", fp2);
+        fprintf(fp2,"    %s(", name);
         fprintf(fp2, "%s[",pars[ind].name);
         ind += 2;
         fprintf(fp2, "%s]",pars[ind].name);
@@ -245,11 +225,11 @@ int iff(FILE *fp2, int ind){
         ind++;
         if(strcmp(pars[ind].type, "Opp") == 0){
             ind --;
-            fputs("    if(", fp2);
+            fprintf(fp2,"    %s(", name);
             if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
                 fputs(pars[ind].name,fp2);
             }
-
+            ind ++;
             switch (pars[ind].name[0]){
                 case '=' :
                     fputs(" == ", fp2);
@@ -261,7 +241,7 @@ int iff(FILE *fp2, int ind){
                     fputs(" > ", fp2);
                     break;
             }
-            ind += 2;
+            ind ++;
             if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
                 fputs(pars[ind].name,fp2);
             }
@@ -270,40 +250,6 @@ int iff(FILE *fp2, int ind){
         }
     }
     return ind;
-}
-int foor (FILE *fp2, int ind){
-   ind += 2;
-   if(strcmp(pars[ind].type, "Opp") == 0){
-       ind --;
-       fputs("    while(", fp2);
-       if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-           while ((strcmp(pars[ind].type, "Ter") != 0) && (pars[ind].name[0] != '=')){
-               fputs(pars[ind].name,fp2);
-               ind ++;
-           }
-       }
-       switch (pars[ind].name[0]){
-            case '=' :
-                fputs(" == ", fp2);
-                break;
-            case '<' :
-                fputs(" < ", fp2);
-                break;
-            case '>' :
-                fputs(" > ", fp2);
-                break;
-       }
-       ind ++;
-       if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-           while ((strcmp(pars[ind].type, "Ter") != 0)){
-               fputs(pars[ind].name,fp2);
-               ind ++;
-           }
-       }
-       ind --;
-       fputs("){\n", fp2);
-    }
-   return ind;
 }
 
 int main(){
@@ -354,7 +300,7 @@ int main(){
             k ++;
         }
         else {
-            if (isopp(c)){
+            if (isinchars(opps, c)){
                 strcpy(pars[k].type, "Opp");
                 if(c == '/'){
                     if(c == '/'){
@@ -375,7 +321,7 @@ int main(){
                 }
                 k ++;
             }
-            else if (issymb(c)){
+            else if (isinchars(symb, c)){
                 strcpy(pars[k].type, "Symb");
                 switch(c){
                     case '"':
@@ -412,14 +358,14 @@ int main(){
                     i = print(fp2, i);
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
-                    i = iff(fp2, i);
+                    i = structure(fp2, i, "if");
                     i ++;
                 }
                 else if (strcmp(pars[i].name, "end") == 0){
                     fputs("    }\n", fp2);
                 }
                 else if (strcmp(pars[i].name, "while") == 0){
-                    i = foor(fp2, i);
+                    i = structure(fp2, i, "while");
                 }
                 break;
             case 'O':
