@@ -356,8 +356,23 @@ int main(){
         else {
             if (isopp(c)){
                 strcpy(pars[k].type, "Opp");
-                conv[0] = c;
-                strcpy(pars[k].name, conv);
+                if(c == '/'){
+                    if(c == '/'){
+                        while (c != '\n'){
+                            c = fgetc(fp1);
+                        }
+                        strcpy(pars[k].type, "Ter");
+                        strcpy(pars[k].name, "Ter");
+                    }
+                    else{
+                        conv[0] = '/';
+                        strcpy(pars[k].name, conv);
+                    }
+                }
+                else{
+                    conv[0] = c;
+                    strcpy(pars[k].name, conv);
+                }
                 k ++;
             }
             else if (issymb(c)){
@@ -375,24 +390,6 @@ int main(){
                     case ';':
                         strcpy(pars[k].name, "semicolon");
                         break;
-                    case '/':
-                        l = ftell(fp1);
-                        c = fgetc(fp1);
-                        if(c == '/'){
-                            while (c != '\n'){
-                                c = fgetc(fp1);
-                            }
-                            k --;
-                            if(strcmp(pars[k].name, "Ter") != 0){
-                                k ++;
-                                strcpy(pars[k].type, "Ter");
-                                strcpy(pars[k].name, "Ter");
-                            }
-                        }
-                        else{
-                            strcpy(pars[k].name, "div");
-                            fseek(fp1, l - 1, SEEK_SET);
-                        }
                 }
                 k ++;
             }
