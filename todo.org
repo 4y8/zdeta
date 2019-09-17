@@ -2,16 +2,17 @@
 * Core functions
 ** TODO Implements errors
 ** TODO Add floats
-** TODO More operations (decrement, euclidian division, etc.)[0/2]
+** TODO More operations [0/2]
 + [ ] decrement
 + [ ] euclidian division
-** TODO Add control structures (else, elif, for etc.)[0/4]
+** TODO Add control structures [0/4]
 + [ ] else
 + [ ] elif
 + [ ] for
 + [ ] switch/case
 ** TODO Add Strings ans chars
 ** TODO Add user input
+** TODO Secure the code
 ** WAIT Add system interactions
 ** WAIT Add files interactions
 * Side functions

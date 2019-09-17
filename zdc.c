@@ -6,7 +6,7 @@
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; int type; int len;};
 char symb[10] = {'(',')','{','}',';','"','[',']'};
-char *funs[9] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end"};
+char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end", "swap", "case", "switch", "iter"};
 char opps[7] = {'+', '/', '-', '=', '%','>','<'};
 struct lex pars[200];
 struct var vars[50];
@@ -14,7 +14,7 @@ char conv[2] = {'a', '\0'};
 char str[100];
 
 int isfun(char in[]){
-    for(int i = 0; i < 9; i++){
+    for(int i = 0; i < 13; i++){
         if (strcmp(funs[i], in) == 0){
             return 1;
         }
@@ -186,11 +186,67 @@ void increment(FILE *fp2, char val[]){
     fputs(val, fp2);
     fputs("++;\n", fp2);
 }
+
+int arrayelement(FILE *fp2, int index){
+    int i = varind(pars[index].name);
+    if (i == -1){
+        puts ("Error: attributing index to non-list element");
+        return -1;
+    }
+    else{
+        index++;
+        if (strcmp(pars[index].name, "leftsquarebracket") == 0){
+            index ++;
+            if (strcmp(pars[index].type, "Num") == 0){
+                index ++;
+                if (strcmp(pars[index].name, "rightsquarebracket") == 0){
+                    index -= 3;
+                    fprintf(fp2, "    %s[", pars[index].name);
+                    index += 2;
+                    fprintf(fp2, "    %s];\n", pars[index].name);
+                    index ++;
+                    return index;
+                }
+                else{
+                    puts("Error: Probably missing a ']'");
+                    return -1;
+                }
+            }
+            else if (isvar(pars[index].name)){
+                index ++;
+                if (strcmp(pars[index].name, "rightsquarebracket") == 0){
+                    index -= 3;
+                    fprintf(fp2, "    %s[", pars[index].name);
+                    index += 2;
+                    fprintf(fp2, "    %s];\n", pars[index].name);
+                    index ++;
+                    return index;
+                }
+                else if (strcmp(pars[index].type, "Num"){
+
+                }
+                else{
+                    puts("Error: Probably missing a ']'");
+                    return -1;
+                }
+            }
+            else{
+                puts("Error; non-valid array index");
+                return - 1;
+            }
+        }
+        else{
+            puts("Error: TODO");
+            return -1;
+        }
+    }
+}
+
 int structure(FILE *fp2, int ind, char name[]){
     ind ++;
     int i = varind(pars[ind].name);
     puts(pars[ind].name);
-    if (1 == vars[i].type){
+    if ((1 == vars[i].type) && (i != -1)){
         fprintf(fp2,"    %s(", name);
         fprintf(fp2, "%s[",pars[ind].name);
         ind += 2;
