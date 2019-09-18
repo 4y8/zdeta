@@ -132,7 +132,6 @@ int assignvar(FILE *fp2, int index, int find){
         }
     }
     else{
-        puts("ee");
         find --;
         fputs("    ", fp2);
         fputs(vars[index].name, fp2);
@@ -216,7 +215,6 @@ int arrayelement(FILE *fp2, int index, int j){
                 index ++;
                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
                     index -= 3;
-                    puts("Yay");
                     fprintf(fp2, "%s[", pars[index].name);
                     index += 2;
                     fprintf(fp2, "%s]", pars[index].name);
@@ -232,8 +230,10 @@ int arrayelement(FILE *fp2, int index, int j){
                                     index -= 3;
                                     fseek(fp2, j, SEEK_SET);
                                     fprintf(fp2, "    %s++;\n", pars[index].name);
-                                    fseek(fp2, curcurs, SEEK_SET);
+                                    fseek(fp2, curcurs + 4, SEEK_SET);
+                                    puts(vars[i].name);
                                     fprintf(fp2, "%s[%s]", vars[i].name, pars[index].name);
+                                    curcurs = ftell(fp2);
                                     fprintf(fp2, "\n    %s--;\n", pars[index].name);
                                     fseek(fp2, curcurs, SEEK_SET);
                                 }
@@ -334,13 +334,8 @@ int structure(FILE *fp2, int ind, char name[]){
     int j = ftell(fp2);
     ind ++;
     int i = varind(pars[ind].name);
-    puts(pars[ind].name);
     if ((1 == vars[i].type) && (i != -1)){
-        fprintf(fp2,"    %s(", name);/*
-        fprintf(fp2, "%s[",pars[ind].name);
-        ind += 2;
-        fprintf(fp2, "%s]",pars[ind].name);
-        ind += 2;*/
+        fprintf(fp2,"    %s(", name);
         ind = arrayelement(fp2, ind, j);
         ind ++;
         switch (pars[ind].name[0]){
@@ -358,11 +353,6 @@ int structure(FILE *fp2, int ind, char name[]){
         i = varind(pars[ind].name);
         if (1 == vars[i].type){
             ind = arrayelement(fp2, ind, j);
-            /*fprintf(fp2, "%s[",pars[ind].name);
-            ind += 2;
-            fprintf(fp2, "%s]",pars[ind].name);
-            ind += 2;*/
-
         }
         else{
             fputs(pars[ind].name, fp2);
