@@ -202,9 +202,9 @@ int arrayelement(FILE *fp2, int index, int j){
                 index ++;
                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
                     index -= 3;
-                    fprintf(fp2, "    %s[", pars[index].name);
+                    fprintf(fp2, "%s[", pars[index].name);
                     index += 2;
-                    fprintf(fp2, "    %s];\n", pars[index].name);
+                    fprintf(fp2, "%s]", pars[index].name);
                     index ++;
                 }
                 else{
@@ -216,9 +216,10 @@ int arrayelement(FILE *fp2, int index, int j){
                 index ++;
                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
                     index -= 3;
-                    fprintf(fp2, "    %s[", pars[index].name);
+                    puts("Yay");
+                    fprintf(fp2, "%s[", pars[index].name);
                     index += 2;
-                    fprintf(fp2, "    %s];\n", pars[index].name);
+                    fprintf(fp2, "%s]", pars[index].name);
                     index ++;
                 }
                 else if (strcmp(pars[index].type, "Opp") == 0){
@@ -254,7 +255,52 @@ int arrayelement(FILE *fp2, int index, int j){
                                         fseek(fp2, curcurs, SEEK_SET);
                                         index -= 2;
                                         fprintf(fp2, "%s[%s]", vars[i].name, pars[index].name);
-                                        fprintf(fp2, "\n    %s--;\n", pars[index].name);
+                                        fprintf(fp2, "\n    %s-=;\n", pars[index].name);
+                                        index += 2;
+                                        fprintf(fp2, "%s;\n", pars[index].name);
+                                        fseek(fp2, curcurs, SEEK_SET);
+                                    }
+                                    else{
+                                        puts("Error: Probably missing a ']'");
+                                        return -1;
+                                    }
+                                }
+                            }
+                            break;
+                        case '-':
+                            index ++;
+                            if(pars[index].name[0] == '-'){
+                                index++;
+                                if (strcmp(pars[index].name, "rightsquarebracket") == 0){
+                                    index -= 3;
+                                    fseek(fp2, j, SEEK_SET);
+                                    fprintf(fp2, "    %s--;\n", pars[index].name);
+                                    fseek(fp2, curcurs, SEEK_SET);
+                                    fprintf(fp2, "%s[%s]", vars[i].name, pars[index].name);
+                                    fprintf(fp2, "\n    %s++;\n", pars[index].name);
+                                    fseek(fp2, curcurs, SEEK_SET);
+                                }
+                                else{
+                                    puts("Error: Probably missing a ']'");
+                                    return -1;
+                                }
+                            }
+                            else{
+                                index ++;
+                                if ((strcmp(pars[index].type, "Num") || (isvar(pars[index].name)))){
+                                    index ++;
+                                    if (strcmp(pars[index].name, "rightsquarebracket") == 0){
+                                        index -= 3;
+                                        fseek(fp2, j, SEEK_SET);
+                                        fprintf(fp2, "    %s-=", pars[index].name);
+                                        index += 2;
+                                        fprintf(fp2, "%s;\n", pars[index].name);
+                                        fseek(fp2, curcurs, SEEK_SET);
+                                        index -= 2;
+                                        fprintf(fp2, "%s[%s]", vars[i].name, pars[index].name);
+                                        fprintf(fp2, "\n    %s+=;\n", pars[index].name);
+                                        index += 2;
+                                        fprintf(fp2, "%s;\n", pars[index].name);
                                         fseek(fp2, curcurs, SEEK_SET);
                                     }
                                     else{
@@ -290,11 +336,13 @@ int structure(FILE *fp2, int ind, char name[]){
     int i = varind(pars[ind].name);
     puts(pars[ind].name);
     if ((1 == vars[i].type) && (i != -1)){
-        fprintf(fp2,"    %s(", name);
+        fprintf(fp2,"    %s(", name);/*
         fprintf(fp2, "%s[",pars[ind].name);
         ind += 2;
         fprintf(fp2, "%s]",pars[ind].name);
-        ind += 2;
+        ind += 2;*/
+        ind = arrayelement(fp2, ind, j);
+        ind ++;
         switch (pars[ind].name[0]){
             case '=':
                 fputs(" == ", fp2);
@@ -309,10 +357,12 @@ int structure(FILE *fp2, int ind, char name[]){
         ind ++;
         i = varind(pars[ind].name);
         if (1 == vars[i].type){
-            fprintf(fp2, "%s[",pars[ind].name);
+            ind = arrayelement(fp2, ind, j);
+            /*fprintf(fp2, "%s[",pars[ind].name);
             ind += 2;
             fprintf(fp2, "%s]",pars[ind].name);
-            ind += 2;
+            ind += 2;*/
+
         }
         else{
             fputs(pars[ind].name, fp2);
