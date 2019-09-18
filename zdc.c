@@ -187,8 +187,9 @@ void increment(FILE *fp2, char val[]){
     fputs("++;\n", fp2);
 }
 
-int arrayelement(FILE *fp2, int index){
+int arrayelement(FILE *fp2, int index, int j){
     int i = varind(pars[index].name);
+    int curcurs = ftell(fp2);
     if (i == -1){
         puts ("Error: attributing index to non-list element");
         return -1;
@@ -222,8 +223,24 @@ int arrayelement(FILE *fp2, int index){
                     index ++;
                     return index;
                 }
-                else if (strcmp(pars[index].type, "Num"){
+                else if (strcmp(pars[index].type, "Opp") == 0){
+                    switch (pars[index].name[0]){
+                        case '+':
+                            index ++;
+                            if(pars[index].name[0] == '+'){
+                                index -= 2;
+                                fseek(fp2, j, SEEK_SET);
+                                fprintf(fp2, "    %s++;\n", pars[index].name);
 
+                            }
+                            else if(){
+
+                            }
+                            else{
+
+                            }
+                            break;
+                    }
                 }
                 else{
                     puts("Error: Probably missing a ']'");
@@ -243,6 +260,7 @@ int arrayelement(FILE *fp2, int index){
 }
 
 int structure(FILE *fp2, int ind, char name[]){
+    int j = ftell(fp2);
     ind ++;
     int i = varind(pars[ind].name);
     puts(pars[ind].name);
