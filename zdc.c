@@ -188,8 +188,6 @@ void increment(FILE *fp2, char val[]){
 
 int arrayelement(FILE *fp2, int index, int j){
     int i = varind(pars[index].name);
-    int curcurs = ftell(fp2);
-    char str[50];
     if (i == -1){
         puts ("Error: attributing index to non-list element");
         return -1;
@@ -201,11 +199,8 @@ int arrayelement(FILE *fp2, int index, int j){
             if (strcmp(pars[index].type, "Num") == 0){
                 index ++;
                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                    index -= 3;
-                    fprintf(fp2, "%s[", pars[index].name);
-                    index += 2;
-                    fprintf(fp2, "%s]", pars[index].name);
-                    index ++;
+                    fprintf(fp2, "%s[", pars[index - 3].name);
+                    fprintf(fp2, "%s]", pars[index - 1].name);
                 }
                 else{
                     puts("Error: Probably missing a ']'");
@@ -253,13 +248,8 @@ int arrayelement(FILE *fp2, int index, int j){
                             if(pars[index].name[0] == '-'){
                                 index++;
                                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                                    index -= 3;
-                                    fseek(fp2, j, SEEK_SET);
-                                    fprintf(fp2, "    %s--;\n", pars[index].name);
-                                    fseek(fp2, curcurs, SEEK_SET);
-                                    fprintf(fp2, "%s[%s]", vars[i].name, pars[index].name);
-                                    fprintf(fp2, "\n    %s++;\n", pars[index].name);
-                                    fseek(fp2, curcurs, SEEK_SET);
+                                    fprintf(fp2, "%s[", pars[index - 5].name);
+                                    fprintf(fp2, "%s - 1]", pars[index - 3].name);
                                 }
                                 else{
                                     puts("Error: Probably missing a ']'");
@@ -271,18 +261,8 @@ int arrayelement(FILE *fp2, int index, int j){
                                 if ((strcmp(pars[index].type, "Num") || (isvar(pars[index].name)))){
                                     index ++;
                                     if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                                        index -= 3;
-                                        fseek(fp2, j, SEEK_SET);
-                                        fprintf(fp2, "    %s-=", pars[index].name);
-                                        index += 2;
-                                        fprintf(fp2, "%s;\n", pars[index].name);
-                                        fseek(fp2, curcurs, SEEK_SET);
-                                        index -= 2;
-                                        fprintf(fp2, "%s[%s]", vars[i].name, pars[index].name);
-                                        fprintf(fp2, "\n    %s+=;\n", pars[index].name);
-                                        index += 2;
-                                        fprintf(fp2, "%s;\n", pars[index].name);
-                                        fseek(fp2, curcurs, SEEK_SET);
+                                        fprintf(fp2, "%s[", pars[index - 5].name);
+                                        fprintf(fp2, "%s + %s]", pars[index - 3].name, pars[index - 1].name);
                                     }
                                     else{
                                         puts("Error: Probably missing a ']'");
@@ -372,8 +352,8 @@ int structure(FILE *fp2, int ind, char name[]){
     return ind;
 }
 
-int main(){
-    FILE *fp1 = fopen ("Examples/brute_sort.zd", "r");
+int main( int argc, char *argv[] ){
+    FILE *fp1 = fopen (argv[1], "r");
     FILE *fp2 = fopen("testhello.c", "w+");
     fputs ("#include <stdio.h>\n", fp2);
     fputs ("int main(){\n", fp2);
