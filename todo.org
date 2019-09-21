@@ -1,6 +1,6 @@
 #+TITLE: TODO
 * Core functions
-** TODO Implements errors
+** TODO Implements errors [40%]
 ** TODO Add floats
 ** TODO More operations [1/2]
 + [X] decrement
@@ -16,8 +16,8 @@
 ** WAIT Add system interactions
 ** WAIT Add files interactions
 * Side functions
-** TODO Beautify the code
-** TODO Simplify the code
+** TODO Beautify the code [20%]
+** TODO Simplify the code [20%]
 ** TODO Make an emacs mode
 ** TODO Add more functions
 + [ ] swap
@@ -28,6 +28,6 @@
 ** TODO Create an interpreter
 * Git Page
 ** DONE Setup the git page
-** TODO Write a good README
+** TODO Write a good README [40%]
 ** TODO Write more examples
 ** WAIT Create coreutils like programms (ls, little text editor)

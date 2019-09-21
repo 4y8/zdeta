@@ -6,7 +6,7 @@ buf = 0  // Set up a buffer variable
 
 while i < 6
     while j < 6
-        if array[j++] > array[i]
+        if array[i] > array[i]
            buf = array[i]
            array[i] = array[j]
            array[j] = buf

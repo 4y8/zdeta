@@ -5,7 +5,7 @@
 
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; int type; int len;};
-char symb[10] = {'(',')','{','}',';','"','[',']'};
+char symb[10] = {'(',')','{','}',';','"','[',']','a'};
 char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end", "swap", "case", "switch", "iter"};
 char opps[7] = {'+', '/', '-', '=', '%','>','<'};
 struct lex pars[200];
@@ -136,11 +136,9 @@ int assignvar(FILE *fp2, int index, int find){
         }
     }
     else{
-        find --;
         fputs("    ", fp2);
         fputs(vars[index].name, fp2);
         fputs(" = ", fp2);
-        find ++;
         while(strcmp(pars[find].name, "Ter") != 0){
             if (strcmp(pars[find].type, "Symb") == 0){
                 if(strcmp(pars[find].name, "leftsquarebracket") == 0){
@@ -454,9 +452,7 @@ int main( int argc, char *argv[] ){
             }
         }
         if(c == '\n'){
-            k --;
-            if(strcmp(pars[k].name, "Ter") != 0){
-                k ++;
+            if(strcmp(pars[k - 1].name, "Ter") != 0){
                 strcpy(pars[k].type, "Ter");
                 strcpy(pars[k].name, "Ter");
             }
@@ -483,11 +479,9 @@ int main( int argc, char *argv[] ){
                 break;
             case 'O':
                 if (strcmp(pars[i].name, "=") == 0){
-                    i --;
-                    if (strcmp(pars[i].type, "Str") == 0){
+                    if (strcmp(pars[i - 1].type, "Str") == 0){
                         if(isvar(pars[i].name) == 0){
-                            createvar(fp2, k, i);
-                            i ++;
+                            createvar(fp2, k, i - 1);
                             i = assignvar(fp2, k, i);
                             k++;
                         }
@@ -505,32 +499,24 @@ int main( int argc, char *argv[] ){
                 break;
             case 'S':
                 if(isvar(pars[i].name)){
-                    i++;
-                    if(pars[i].name[0] == '+'){
-                        i++;
-                        if(pars[i].name[0] == '+'){
-                            i -= 2;
+                    if(pars[i + 1].name[0] == '+'){
+                        if(pars[i + 1].name[0] == '+'){
                             increment(fp2,pars[i].name);
                         }
                     }
-                    else if(pars[i].name[0] == '-'){
-                        i++;
-                        if(pars[i].name[0] == '-'){
-                            i -= 2;
+                    else if(pars[i + 1].name[0] == '-'){
+                        if(pars[i + 1].name[0] == '-'){
                             decrement(fp2,pars[i].name);
                         }
                     }
                     else if(pars[i].name[0] == '='){
-                        i--;
-                        if(isvar(pars[i].name) == 0){
+                        if(isvar(pars[i - 1].name) == 0){
                             createvar(fp2, k, i);
-                            i ++;
                             i = assignvar(fp2, k, i);
                             k++;
                         }
                         else{
                             j = varind(pars[i].name);
-                            i ++;
                             i = assignvar(fp2, j, i);
                         }
                     }
