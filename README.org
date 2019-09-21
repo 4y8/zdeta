@@ -11,7 +11,7 @@ print "Hello World!"
 #+END_SRC
 You can notice that there is no parentheses between the function and the argument like in ocaml or ruby. You can also notice that there is no semicolon at the end of the line. Here is a brute force search algorithm:
 #+BEGIN_SRC
-array = [3; 4; 1; 7; 0; 0]
+array = [3, 4, 1, 7, 0, 0]
 i = 0
 j = 0
 buf = 0
@@ -33,7 +33,7 @@ Let's take it part by part:
 #+BEGIN_SRC
 array = [3; 4; 1; 7; 0; 0]
 #+END_SRC
-Here we declare the array we want to sort, the elements are separated by a semicolon (temporarily). We don't need to use a let or int keyword.
+Here we declare the array we want to sort, the elements are separated by a coma. We don't need to use a let or int keyword.
 #+BEGIN_SRC
 i = 0
 j = 0

@@ -12,7 +12,6 @@ struct lex pars[200];
 struct var vars[50];
 char conv[2] = {'a', '\0'};
 char str[100];
-int linum; // A variable to keep track of the line number for the errors
 
 int isfun(char in[]){
     for(int i = 0; i < 13; i++){
@@ -51,7 +50,7 @@ int varind (char in[]){
 
 void error(char in[]){
     printf("\033[1;31m Error:\033[0m %s\n", in);
-    exit(0);
+    exit(0); // Exit the program if there is an error
 }
 
 int print(FILE *fp2, int i){
@@ -150,11 +149,9 @@ int assignvar(FILE *fp2, int index, int find){
 }
 
 int assignarray(FILE *fp2, int find){
-    find -= 3;
-    fprintf(fp2, "    %s[", pars[find].name);
+    fprintf(fp2, "    %s[", pars[find - 3].name);
+    fprintf(fp2, "%s] = ", pars[find - 1].name);
     find += 2;
-    fprintf(fp2, "%s] = ", pars[find].name);
-    find += 3;
     while (strcmp(pars[find].name, "Ter") != 0){
         if (strcmp(pars[find].type, "Symb") == 0){
             if(strcmp(pars[find].name, "leftsquarebracket") == 0){
@@ -513,8 +510,6 @@ int main( int argc, char *argv[] ){
                     }
                 }
                 break;
-            case 'T':
-                linum ++;
         }
     }
     fclose(fp1);
