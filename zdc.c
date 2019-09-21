@@ -184,12 +184,23 @@ int assignarray(FILE *fp2, int find){
     return find;
 }
 
+// Here is the increment system
 void increment(FILE *fp2, char val[]){
-    if(isvar(val)){
+    if(isvar(val)){ // Check if we increment a variable
         fprintf(fp2,"    %s++;\n", val);
     }
-    else{
-        error("Incrementing a not variable element");
+    else{ // Else we print an error
+        error("Incrementing a non variable element");
+    }
+}
+
+// Here is the increment system
+void decrement(FILE *fp2, char val[]){
+    if(isvar(val)){ // Check if we decrement a variable
+        fprintf(fp2,"    %s++;\n", val);
+    }
+    else{ // Else we print an error
+        error("Decrementing a non variable element");
     }
 }
 
@@ -500,6 +511,13 @@ int main( int argc, char *argv[] ){
                         if(pars[i].name[0] == '+'){
                             i -= 2;
                             increment(fp2,pars[i].name);
+                        }
+                    }
+                    else if(pars[i].name[0] == '-'){
+                        i++;
+                        if(pars[i].name[0] == '-'){
+                            i -= 2;
+                            decrement(fp2,pars[i].name);
                         }
                     }
                     else if(pars[i].name[0] == '='){

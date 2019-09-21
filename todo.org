@@ -2,8 +2,8 @@
 * Core functions
 ** TODO Implements errors
 ** TODO Add floats
-** TODO More operations [0/2]
-+ [ ] decrement
+** TODO More operations [1/2]
++ [X] decrement
 + [ ] euclidian division
 ** TODO Add control structures [0/4]
 + [ ] else
@@ -23,7 +23,7 @@
 + [ ] swap
 + [ ] iter
 ** DONE Add comments
-** TODO Add command line interface
+** DONE Add command line interface
 ** TODO Create a REPL
 ** TODO Create an interpreter
 * Git Page
