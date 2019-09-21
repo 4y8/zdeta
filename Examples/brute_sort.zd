@@ -1,5 +1,5 @@
 // Set up Variables
-array = [3; 4; 1; 7; 0; 0]
+array = [3, 4, 1, 7, 0, 0]
 i = 0
 j = 0
 buf = 0  // Set up a buffer variable

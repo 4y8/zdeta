@@ -280,7 +280,6 @@ int arrayelement(FILE *fp2, int index, int j){
         }
         else{
             error("TODO");
-            return -1;
         }
     }
     return index;
@@ -316,7 +315,7 @@ int structure(FILE *fp2, int ind, char name[]){
     }
     else{
         ind++;
-        if(strcmp(pars[ind].type, "Opp") == 0){
+        if(strcmp(pars[ind].type, "Symb") == 0){
             ind --;
             fprintf(fp2,"    %s(", name);
             if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
@@ -466,12 +465,14 @@ int main( int argc, char *argv[] ){
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
                     i = structure(fp2, i, "if");
+                    i ++;
                 }
                 else if (strcmp(pars[i].name, "end") == 0){
                     fputs("    }\n", fp2);
                 }
                 else if (strcmp(pars[i].name, "while") == 0){
                     i = structure(fp2, i, "while");
+                    i ++;
                 }
                 break;
             case 'S':
@@ -486,16 +487,11 @@ int main( int argc, char *argv[] ){
                             decrement(fp2,pars[i].name);
                         }
                     }
-                    else if(pars[i].name[0] == '='){
-                        if(isvar(pars[i - 1].name) == 0){
-                            createvar(fp2, k, i);
-                            i = assignvar(fp2, k, i);
-                            k++;
-                        }
-                        else{
-                            j = varind(pars[i].name);
-                            i = assignvar(fp2, j, i);
-                        }
+                    else if(strcmp(pars[i + 1].name, "equal") == 0){
+                        j = varind(pars[i].name);
+                        i ++;
+                        i = assignvar(fp2, j, i);
+                        i++;
                     }
                 }
                 else if (strcmp(pars[i].name, "equal") == 0){
