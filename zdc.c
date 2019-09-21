@@ -78,13 +78,17 @@ int print(FILE *fp2, int i){
         }
         else if (vars[j].type == 1){
             fprintf(fp2, "    for(int z = 0; z < %d; z++){\n        printf(%c%cd %c, %s[z]);\n    }\n", vars[j].len, '"', '%','"', vars[j].name);
-
         }
     }
     else if (isdigit(pars[i].name[0])){
         i ++;
     }
     return i;
+}
+
+void error(char in[]){
+    printf("\033[1;31m Error:\033[0m %s\n", in);
+    exit(0);
 }
 
 void createvar(FILE *fp2, int index, int ind){
@@ -181,37 +185,39 @@ int assignarray(FILE *fp2, int find){
 }
 
 void increment(FILE *fp2, char val[]){
-    fputs("    ", fp2);
-    fputs(val, fp2);
-    fputs("++;\n", fp2);
+    if(isvar(val)){
+        fprintf(fp2,"    %s++;\n", val);
+    }
+    else{
+        error("Incrementing a not variable element");
+    }
 }
 
+// Here is the array system
 int arrayelement(FILE *fp2, int index, int j){
     int i = varind(pars[index].name);
+    // First we check if we have an array
     if (i == -1){
-        puts ("Error: attributing index to non-list element");
+        puts ("Error: attributing index to non-list element"); // If no we print an error message
         return -1;
     }
     else{
         index++;
-        if (strcmp(pars[index].name, "leftsquarebracket") == 0){
+        if (strcmp(pars[index].name, "leftsquarebracket") == 0){ // Check if the variabiable is followed by a left square bracket
             index ++;
             if (strcmp(pars[index].type, "Num") == 0){
                 index ++;
                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                    fprintf(fp2, "%s[", pars[index - 3].name);
-                    fprintf(fp2, "%s]", pars[index - 1].name);
+                    fprintf(fp2, "%s[%s]", pars[index - 3].name, pars[index - 1].name);
                 }
                 else{
-                    puts("Error: Probably missing a ']'");
-                    return -1;
+                    error("Probably missing a ']'"); // If there is no right square bracket print an error message
                 }
             }
             else if (isvar(pars[index].name)){
                 index ++;
                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                    fprintf(fp2, "%s[", pars[index - 3].name);
-                    fprintf(fp2, "%s]", pars[index - 1].name);
+                    fprintf(fp2, "%s[%s]", pars[index - 3].name, pars[index - 1].name);
                 }
                 else if (strcmp(pars[index].type, "Opp") == 0){
                     switch (pars[index].name[0]){
@@ -220,12 +226,10 @@ int arrayelement(FILE *fp2, int index, int j){
                             if(pars[index].name[0] == '+'){
                                 index++;
                                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                                    fprintf(fp2, "%s[", pars[index - 5].name);
-                                    fprintf(fp2, "%s + 1]", pars[index - 3].name);
+                                    fprintf(fp2, "%s[%s + 1]", pars[index - 5].name, pars[index - 3].name);
                                 }
                                 else{
-                                    puts("Error: Probably missing a ']'");
-                                    return -1;
+                                    error("Probably missing a ']'"); // If there is no right square bracket print an error message
                                 }
                             }
                             else{
@@ -233,12 +237,10 @@ int arrayelement(FILE *fp2, int index, int j){
                                 if ((strcmp(pars[index].type, "Num") || (isvar(pars[index].name)))){
                                     index ++;
                                     if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                                        fprintf(fp2, "%s[", pars[index - 5].name);
-                                        fprintf(fp2, "%s + %s]", pars[index - 3].name, pars[index - 1].name);
+                                        fprintf(fp2, "%s[%s + %s]", pars[index - 5].name, pars[index - 3].name, pars[index - 1].name);
                                     }
                                     else{
-                                        puts("Error: Probably missing a ']'");
-                                        return -1;
+                                        error("Probably missing a ']'"); // If there is no right square bracket print an error message
                                     }
                                 }
                             }
@@ -248,12 +250,10 @@ int arrayelement(FILE *fp2, int index, int j){
                             if(pars[index].name[0] == '-'){
                                 index++;
                                 if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                                    fprintf(fp2, "%s[", pars[index - 5].name);
-                                    fprintf(fp2, "%s - 1]", pars[index - 3].name);
+                                    fprintf(fp2, "%s[%s - 1]", pars[index - 5].name, pars[index - 3].name);
                                 }
                                 else{
-                                    puts("Error: Probably missing a ']'");
-                                    return -1;
+                                    error("Probably missing a ']'"); // If there is no right square bracket print an error message
                                 }
                             }
                             else{
@@ -261,12 +261,10 @@ int arrayelement(FILE *fp2, int index, int j){
                                 if ((strcmp(pars[index].type, "Num") || (isvar(pars[index].name)))){
                                     index ++;
                                     if (strcmp(pars[index].name, "rightsquarebracket") == 0){
-                                        fprintf(fp2, "%s[", pars[index - 5].name);
-                                        fprintf(fp2, "%s + %s]", pars[index - 3].name, pars[index - 1].name);
+                                        fprintf(fp2, "%s[%s + %s]", pars[index - 5].name, pars[index - 3].name, pars[index - 1].name);
                                     }
                                     else{
-                                        puts("Error: Probably missing a ']'");
-                                        return -1;
+                                        error("Probably missing a ']'"); // If there is no right square bracket print an error message
                                     }
                                 }
                             }
@@ -274,17 +272,15 @@ int arrayelement(FILE *fp2, int index, int j){
                     }
                 }
                 else{
-                    puts("Error: Probably missing a ']'");
-                    return -1;
+                    error("Probably missing a ']'"); // If there is no right square bracket print an error message
                 }
             }
             else{
-                puts("Error; non-valid array index");
-                return - 1;
+                error("non-valid array index"); // Print an error the index is not a number nor a variable
             }
         }
         else{
-            puts("Error: TODO");
+            error("TODO");
             return -1;
         }
     }
@@ -435,6 +431,12 @@ int main( int argc, char *argv[] ){
                         break;
                     case ';':
                         strcpy(pars[k].name, "semicolon");
+                        break;
+                    case '(':
+                        strcpy(pars[k].name, "leftparenthesis");
+                        break;
+                    case ')':
+                        strcpy(pars[k].name, "rightparenthesis");
                         break;
                 }
                 k ++;
