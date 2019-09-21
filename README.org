@@ -1,6 +1,9 @@
 #+TITLE: Zdeta
 ** Presentation
-Zdeta is a little High-level language inspired by Ruby, Python, Ocaml etc. The compiler is written in C. It is meant to be simple, beginner-friendly and not frustrating. I had the idea of creating Zdeta after trying Rustlang, I was very frustrated because of all the errors.
+Zdeta is a little High-level language inspired by Ruby, Python, Ocaml etc. The
+compiler is written in C and transpiles to C. It is meant to be simple,
+beginner-friendly and not frustrating. I had the idea of creating Zdeta after
+trying Rust, I was very frustrated because of all the errors.
 ** Exapmles
 Here is the classical Hello world in Zdeta:
 #+BEGIN_SRC
@@ -36,7 +39,8 @@ i = 0
 j = 0
 buf = 0
 #+END_SRC
-Here we declare the other variables.
+Here we declare the other variables. You may have noticed that we declare and
+affect the variables at the same type.
 #+BEGIN_SRC
 while i < 6
     while j < 6
@@ -55,4 +59,4 @@ Here are the main loops, you've probably noticed that you don't have to put a ":
 #+BEGIN_SRC
 print array
 #+END_SRC
-Here we print the list.
+Here we print the sorted list.

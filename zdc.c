@@ -5,13 +5,14 @@
 
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; int type; int len;};
-char symb[10] = {'(',')','{','}',';','"','[',']','a'};
+char symb[12] = {'(',')','{','}',';','"','[',']',',','>','<','='};
 char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end", "swap", "case", "switch", "iter"};
-char opps[7] = {'+', '/', '-', '=', '%','>','<'};
+char opps[7] = {'+', '/', '-', '%'};
 struct lex pars[200];
 struct var vars[50];
 char conv[2] = {'a', '\0'};
 char str[100];
+int linum; // A variable to keep track of the line number for the errors
 
 int isfun(char in[]){
     for(int i = 0; i < 13; i++){
@@ -31,7 +32,7 @@ int isvar(char in[]){
     return 0;
 }
 int isinchars(char in[], char check){
-    for(int i = 0; i < 10; i++){
+    for(int i = 0; i < 12; i++){
         if (in[i] == check){
             return 1;
         }
@@ -93,7 +94,7 @@ void createvar(FILE *fp2, int index, int ind){
         fputs(" [", fp2);
         ind ++;
         while (strcmp(pars[ind].name, "rightsquarebracket") != 0){
-            if (strcmp(pars[ind].name, "semicolon") == 0){
+            if (strcmp(pars[ind].name, "coma") == 0){
                 ind ++;
             }
             else if (strcmp(pars[ind].type, "Num") == 0){
@@ -117,7 +118,7 @@ int assignvar(FILE *fp2, int index, int find){
     if (strcmp(pars[find].name, "leftsquarebracket") == 0){
         find ++;
         while (strcmp(pars[find].name, "rightsquarebracket") != 0){
-            if (strcmp(pars[find].name, "semicolon") == 0){
+            if (strcmp(pars[find].name, "coma") == 0){
                 find ++;
             }
             else if (strcmp(pars[find].type, "Num") == 0){
@@ -198,7 +199,6 @@ int arrayelement(FILE *fp2, int index, int j){
     // First we check if we have an array
     if (i == -1){
         puts ("Error: attributing index to non-list element"); // If no we print an error message
-        return -1;
     }
     else{
         index++;
@@ -294,16 +294,14 @@ int structure(FILE *fp2, int ind, char name[]){
         fprintf(fp2,"    %s(", name);
         ind = arrayelement(fp2, ind, j);
         ind ++;
-        switch (pars[ind].name[0]){
-            case '=':
-                fputs(" == ", fp2);
-                break;
-            case '<':
-                fputs(" < ", fp2);
-                break;
-            case '>':
-                fputs(" > ", fp2);
-                break;
+        if (strcmp(pars[ind].name, "equal") == 0){
+            fputs(" == ", fp2);
+        }
+        else if (strcmp(pars[ind].name, "lowerthan") == 0){
+            fputs(" < ", fp2);
+        }
+        else if (strcmp(pars[ind].name, "greaterthan") == 0){
+            fputs(" > ", fp2);
         }
         ind ++;
         i = varind(pars[ind].name);
@@ -325,16 +323,14 @@ int structure(FILE *fp2, int ind, char name[]){
                 fputs(pars[ind].name,fp2);
             }
             ind ++;
-            switch (pars[ind].name[0]){
-                case '=' :
-                    fputs(" == ", fp2);
-                    break;
-                case '<' :
-                    fputs(" < ", fp2);
-                    break;
-                case '>' :
-                    fputs(" > ", fp2);
-                    break;
+            if (strcmp(pars[ind].name, "equal") == 0){
+                fputs(" == ", fp2);
+            }
+            else if (strcmp(pars[ind].name, "lowerthan") == 0){
+                fputs(" < ", fp2);
+            }
+            else if (strcmp(pars[ind].name, "greaterthan") == 0){
+                fputs(" > ", fp2);
             }
             ind ++;
             if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
@@ -437,6 +433,18 @@ int main( int argc, char *argv[] ){
                     case ')':
                         strcpy(pars[k].name, "rightparenthesis");
                         break;
+                    case ',':
+                        strcpy(pars[k].name, "coma");
+                        break;
+                    case '=':
+                        strcpy(pars[k].name, "equal");
+                        break;
+                    case '<':
+                        strcpy(pars[k].name, "lowerthan");
+                        break;
+                    case '>':
+                        strcpy(pars[k].name, "greaterthan");
+                        break;
                 }
                 k ++;
             }
@@ -512,6 +520,8 @@ int main( int argc, char *argv[] ){
                     }
                 }
                 break;
+            case 'T':
+                linum ++;
         }
     }
     fclose(fp1);
