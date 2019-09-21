@@ -48,6 +48,11 @@ int varind (char in[]){
     return -1;
 }
 
+void error(char in[]){
+    printf("\033[1;31m Error:\033[0m %s\n", in);
+    exit(0);
+}
+
 int print(FILE *fp2, int i){
     i ++;
     int j = 0;
@@ -55,7 +60,7 @@ int print(FILE *fp2, int i){
         i++;
         fputs("    puts(", fp2);
         fputc('"', fp2);
-        while (pars[i].name[0] != 'q') {
+        while (pars[i].name[0] != 'q'){
             fputs(pars[i].name, fp2);
             fputs(" ", fp2);
             i++;
@@ -66,29 +71,16 @@ int print(FILE *fp2, int i){
     else if (isvar(pars[i].name) == 1){
         j = varind(pars[i].name);
         if (vars[j].type == 0){
-            fputs("    printf(", fp2);
-            fputc('"', fp2);
-            if(vars[j].type == 0 ){
-                fputs("%d", fp2);
-                fputc('"', fp2);
-                fputc(',', fp2);
-                fputs(vars[j].name, fp2);
-            }
-            fputs(");\n", fp2);
+            fprintf(fp2, "    printf(%c%s%c,%s);\n", '"', "%d", '"', vars[j].name);
         }
         else if (vars[j].type == 1){
             fprintf(fp2, "    for(int z = 0; z < %d; z++){\n        printf(%c%cd %c, %s[z]);\n    }\n", vars[j].len, '"', '%','"', vars[j].name);
         }
     }
-    else if (isdigit(pars[i].name[0])){
-        i ++;
+    else {
+        error("Printing a non variable or string element");
     }
     return i;
-}
-
-void error(char in[]){
-    printf("\033[1;31m Error:\033[0m %s\n", in);
-    exit(0);
 }
 
 void createvar(FILE *fp2, int index, int ind){
@@ -136,9 +128,7 @@ int assignvar(FILE *fp2, int index, int find){
         }
     }
     else{
-        fputs("    ", fp2);
-        fputs(vars[index].name, fp2);
-        fputs(" = ", fp2);
+        fprintf(fp2,"    %s =", vars[index].name);
         while(strcmp(pars[find].name, "Ter") != 0){
             if (strcmp(pars[find].type, "Symb") == 0){
                 if(strcmp(pars[find].name, "leftsquarebracket") == 0){
