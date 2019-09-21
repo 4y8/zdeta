@@ -101,8 +101,8 @@ void createvar(FILE *fp2, int index, int ind){
                 ind ++;
                 len ++;
             }
-            vars[index].len = len;
         }
+        vars[index].len = len;
         fprintf(fp2,"%d]",len);
         vars[index].type = 1;
     }
@@ -466,33 +466,12 @@ int main( int argc, char *argv[] ){
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
                     i = structure(fp2, i, "if");
-                    i ++;
                 }
                 else if (strcmp(pars[i].name, "end") == 0){
                     fputs("    }\n", fp2);
                 }
                 else if (strcmp(pars[i].name, "while") == 0){
                     i = structure(fp2, i, "while");
-                }
-                break;
-            case 'O':
-                if (strcmp(pars[i].name, "=") == 0){
-                    if (strcmp(pars[i - 1].type, "Str") == 0){
-                        if(isvar(pars[i].name) == 0){
-                            createvar(fp2, k, i - 1);
-                            i = assignvar(fp2, k, i);
-                            k++;
-                        }
-                        else{
-                            j = varind(pars[i].name);
-                            i ++;
-                            i = assignvar(fp2, j, i);
-                            i ++;
-                        }
-                    }
-                    else if(strcmp(pars[i].name, "rightsquarebracket") == 0){
-                        i = assignarray(fp2, i);
-                    }
                 }
                 break;
             case 'S':
@@ -517,6 +496,24 @@ int main( int argc, char *argv[] ){
                             j = varind(pars[i].name);
                             i = assignvar(fp2, j, i);
                         }
+                    }
+                }
+                else if (strcmp(pars[i].name, "equal") == 0){
+                    if (strcmp(pars[i - 1].type, "Str") == 0){
+                        if(isvar(pars[i].name) == 0){
+                            createvar(fp2, k, i - 1);
+                            i = assignvar(fp2, k, i);
+                            k++;
+                        }
+                        else{
+                            j = varind(pars[i].name);
+                            i ++;
+                            i = assignvar(fp2, j, i);
+                            i ++;
+                        }
+                    }
+                    else if(strcmp(pars[i].name, "rightsquarebracket") == 0){
+                        i = assignarray(fp2, i);
                     }
                 }
                 break;
