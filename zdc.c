@@ -5,13 +5,14 @@
 
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; int type; int len;};
-char symb[12] = {'(',')','{','}',';','"','[',']',',','>','<','='};
-char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end", "swap", "case", "switch", "iter"};
-char opps[7] = {'+', '/', '-', '%'};
-struct lex pars[200];
+char symb[12] = {'(',')','{','}',';','"','[',']',',','>','<','='}; // The list of all symbols
+char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end", "swap", "case", "switch", "iter"}; // The list of all functions
+char opps[4] = {'+', '/', '-', '%'};
+struct lex pars[300];
 struct var vars[50];
 char conv[2] = {'a', '\0'};
 char str[100];
+int indent = 0; // A variable to keep track of the indentation
 
 int isfun(char in[]){
     for(int i = 0; i < 13; i++){
@@ -149,9 +150,7 @@ int assignvar(FILE *fp2, int index, int find){
 }
 
 int assignarray(FILE *fp2, int find){
-    fprintf(fp2, "    %s[", pars[find - 3].name);
-    fprintf(fp2, "%s] = ", pars[find - 1].name);
-    find += 2;
+    fprintf(fp2, "    %s[%s] = ", pars[find - 4].name, pars[find - 2].name);
     while (strcmp(pars[find].name, "Ter") != 0){
         if (strcmp(pars[find].type, "Symb") == 0){
             if(strcmp(pars[find].name, "leftsquarebracket") == 0){
@@ -166,6 +165,7 @@ int assignarray(FILE *fp2, int find){
         }
         find ++;
     }
+    find --;
     fputs(";\n", fp2);
     return find;
 }
@@ -306,7 +306,6 @@ int structure(FILE *fp2, int ind, char name[]){
         }
         else{
             fputs(pars[ind].name, fp2);
-            ind++;
         }
         fputs("){\n", fp2);
     }
@@ -333,7 +332,6 @@ int structure(FILE *fp2, int ind, char name[]){
                 fputs(pars[ind].name,fp2);
             }
             fputs("){\n", fp2);
-            ind ++;
         }
     }
     return ind;
@@ -393,6 +391,7 @@ int main( int argc, char *argv[] ){
             if (isinchars(opps, c)){
                 strcpy(pars[k].type, "Opp");
                 if(c == '/'){
+                    c = fgetc(fp1);
                     if(c == '/'){
                         while (c != '\n'){
                             c = fgetc(fp1);
@@ -452,8 +451,8 @@ int main( int argc, char *argv[] ){
             if(strcmp(pars[k - 1].name, "Ter") != 0){
                 strcpy(pars[k].type, "Ter");
                 strcpy(pars[k].name, "Ter");
+                k ++;
             }
-            k ++;
         }
         else if(c == '\t'){
             i = 0;
@@ -487,14 +486,12 @@ int main( int argc, char *argv[] ){
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
                     i = structure(fp2, i, "if");
-                    i ++;
                 }
                 else if (strcmp(pars[i].name, "end") == 0){
                     fputs("    }\n", fp2);
                 }
                 else if (strcmp(pars[i].name, "while") == 0){
                     i = structure(fp2, i, "while");
-                    i ++;
                 }
                 break;
             case 'S':
@@ -530,16 +527,16 @@ int main( int argc, char *argv[] ){
                             i ++;
                         }
                     }
-                    else if(strcmp(pars[i].name, "rightsquarebracket") == 0){
+                    else if(strcmp(pars[i - 1].name, "rightsquarebracket") == 0){
                         i = assignarray(fp2, i);
                     }
                 }
                 break;
         }
     }
-    for(i = 0; i < 100; i++){
+    /*for(i = 0; i < 200; i++){
         puts(pars[i].name);
-    }
+    }*/
     fclose(fp1);
     fputs("    return 0;\n", fp2);
     fputs("}\n", fp2);
