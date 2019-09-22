@@ -13,6 +13,7 @@ struct var vars[50];
 char conv[2] = {'a', '\0'};
 char str[100];
 int indent = 0; // A variable to keep track of the indentation
+int linum = 1;
 
 int isfun(char in[]){
     for(int i = 0; i < 13; i++){
@@ -50,7 +51,7 @@ int varind (char in[]){
 }
 
 void error(char in[]){
-    printf("\033[1;31m Error:\033[0m %s\n", in);
+    printf("\033[1;31m Error:\033[0m(%d) %s\n", linum, in);
     exit(0); // Exit the program if there is an error
 }
 
@@ -66,6 +67,7 @@ int print(FILE *fp2, int i){
             fputs(" ", fp2);
             i++;
         }
+        i --;
         fputc('"', fp2);
         fputs(");\n", fp2);
     }
@@ -144,8 +146,10 @@ int assignvar(FILE *fp2, int index, int find){
             }
             find ++;
         }
+        find --;
         fputs(";\n", fp2);
     }
+    find --;
     return find;
 }
 
@@ -279,7 +283,7 @@ int arrayelement(FILE *fp2, int index, int j){
             error("TODO");
         }
     }
-    return index;
+    return index --;
 }
 
 int structure(FILE *fp2, int ind, char name[]){
@@ -398,10 +402,13 @@ int main( int argc, char *argv[] ){
                         }
                         strcpy(pars[k].type, "Ter");
                         strcpy(pars[k].name, "Ter");
+                        //k ++;
                     }
                     else{
                         conv[0] = '/';
+                        strcpy(pars[k].type, "Opp");
                         strcpy(pars[k].name, conv);
+                        k ++;
                     }
                 }
                 else{
@@ -531,6 +538,11 @@ int main( int argc, char *argv[] ){
                         i = assignarray(fp2, i);
                     }
                 }
+                else if (strcmp(pars[i].type, "Spc") == 0){
+                }
+                break;
+            case 'T':
+                linum ++;
                 break;
         }
     }
