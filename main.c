@@ -88,11 +88,11 @@ int print(FILE *fp2, int i){
 
 void createvar(FILE *fp2, int index, int ind){
     strcpy(vars[index].name, pars[ind].name);
-    int len = 0;
     fputs("    int ", fp2);
     fputs(pars[ind].name, fp2);
     ind += 2;
     if (strcmp(pars[ind].name, "leftsquarebracket") == 0){
+        int len = 0;
         fputs(" [", fp2);
         ind ++;
         while (strcmp(pars[ind].name, "rightsquarebracket") != 0){
@@ -116,8 +116,8 @@ void createvar(FILE *fp2, int index, int ind){
 
 int assignvar(FILE *fp2, int index, int find){
     find ++;
-    int i = 0;
     if (strcmp(pars[find].name, "leftsquarebracket") == 0){
+        int i = 0;
         find ++;
         while (strcmp(pars[find].name, "rightsquarebracket") != 0){
             if (strcmp(pars[find].name, "coma") == 0){
@@ -349,7 +349,7 @@ int main( int argc, char *argv[] ){
     FILE *fp2 = fopen("testhello.c", "w+");
     fputs ("#include <stdio.h>\n", fp2);
     fputs ("int main(){\n", fp2);
-    char c;
+    char c = 'a';
     int i = 0;
     int j = 0;
     int k = 0;
@@ -504,12 +504,12 @@ int main( int argc, char *argv[] ){
             case 'S':
                 if(isvar(pars[i].name)){
                     if(pars[i + 1].name[0] == '+'){
-                        if(pars[i + 1].name[0] == '+'){
+                        if(pars[i + 2].name[0] == '+'){
                             increment(fp2,pars[i].name);
                         }
                     }
                     else if(pars[i + 1].name[0] == '-'){
-                        if(pars[i + 1].name[0] == '-'){
+                        if(pars[i + 2].name[0] == '-'){
                             decrement(fp2,pars[i].name);
                         }
                     }
