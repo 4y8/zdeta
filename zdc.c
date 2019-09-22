@@ -310,7 +310,7 @@ int structure(FILE *fp2, int ind, char name[]){
         }
         fputs("){\n", fp2);
     }
-    else{
+    else if ((vars[i].type == 0) || (strcmp(pars[ind].type, "Num") == 0)){
         ind++;
         if(strcmp(pars[ind].type, "Symb") == 0){
             ind --;
@@ -339,6 +339,9 @@ int structure(FILE *fp2, int ind, char name[]){
     return ind;
 }
 
+void ellse(){
+
+}
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     FILE *fp2 = fopen("testhello.c", "w+");
@@ -452,6 +455,28 @@ int main( int argc, char *argv[] ){
             }
             k ++;
         }
+        else if(c == '\t'){
+            i = 0;
+            strcpy(pars[k].type, "Tab");
+            while(c == '\t'){
+                i ++;
+                c = fgetc(fp1);
+            }
+            sprintf(pars[k].name, "%d", i);
+            fseek(fp1, -1, SEEK_CUR);
+            k ++;
+        }
+        else if((isspace(c)) && (strcmp(pars[k - 1].name, "Ter") == 0)){
+            i = 0;
+            strcpy(pars[k].type, "Spc");
+            while(isspace(c)){
+                c = fgetc(fp1);
+                i ++;
+            }
+            fseek(fp1, -1, SEEK_CUR);
+            sprintf(pars[k].name, "%d", i);
+            k ++;
+        }
     }
     k = 0;
     for (i = 0; i < 200; i++){
@@ -511,6 +536,9 @@ int main( int argc, char *argv[] ){
                 }
                 break;
         }
+    }
+    for(i = 0; i < 100; i++){
+        puts(pars[i].name);
     }
     fclose(fp1);
     fputs("    return 0;\n", fp2);
