@@ -14,6 +14,7 @@ char conv[2] = {'a', '\0'};
 char str[100];
 int indent = 0; // A variable to keep track of the indentation
 int linum = 1;
+int actual_space = 0;
 
 int isfun(char in[]){
     for(int i = 0; i < 13; i++){
@@ -195,7 +196,7 @@ void decrement(FILE *fp2, char val[]){
 }
 
 // Here is the array system
-int arrayelement(FILE *fp2, int index, int j){
+int arrayelement(FILE *fp2, int index){
     int i = varind(pars[index].name);
     // First we check if we have an array
     if (i == -1){
@@ -287,12 +288,11 @@ int arrayelement(FILE *fp2, int index, int j){
 }
 
 int structure(FILE *fp2, int ind, char name[]){
-    int j = ftell(fp2);
     ind ++;
     int i = varind(pars[ind].name);
     if ((1 == vars[i].type) && (i != -1)){
         fprintf(fp2,"    %s(", name);
-        ind = arrayelement(fp2, ind, j);
+        ind = arrayelement(fp2, ind);
         ind ++;
         if (strcmp(pars[ind].name, "equal") == 0){
             fputs(" == ", fp2);
@@ -306,7 +306,7 @@ int structure(FILE *fp2, int ind, char name[]){
         ind ++;
         i = varind(pars[ind].name);
         if (1 == vars[i].type){
-            ind = arrayelement(fp2, ind, j);
+            ind = arrayelement(fp2, ind);
         }
         else{
             fputs(pars[ind].name, fp2);
@@ -349,7 +349,7 @@ int main( int argc, char *argv[] ){
     FILE *fp2 = fopen("testhello.c", "w+");
     fputs ("#include <stdio.h>\n", fp2);
     fputs ("int main(){\n", fp2);
-    char c;
+    char c = 'a';
     int i = 0;
     int j = 0;
     int k = 0;
@@ -459,6 +459,15 @@ int main( int argc, char *argv[] ){
                 strcpy(pars[k].type, "Ter");
                 strcpy(pars[k].name, "Ter");
                 k ++;
+                i = 0;
+                strcpy(pars[k].type, "Spc");
+                while(isspace(c)){
+                    c = fgetc(fp1);
+                    i ++;
+                }
+                fseek(fp1, -1, SEEK_CUR);
+                sprintf(pars[k].name, "%d", i);
+            k ++;
             }
         }
         else if(c == '\t'){
@@ -472,17 +481,6 @@ int main( int argc, char *argv[] ){
             fseek(fp1, -1, SEEK_CUR);
             k ++;
         }
-        else if((isspace(c)) && (strcmp(pars[k - 1].name, "Ter") == 0)){
-            i = 0;
-            strcpy(pars[k].type, "Spc");
-            while(isspace(c)){
-                c = fgetc(fp1);
-                i ++;
-            }
-            fseek(fp1, -1, SEEK_CUR);
-            sprintf(pars[k].name, "%d", i);
-            k ++;
-        }
     }
     k = 0;
     for (i = 0; i < 200; i++){
@@ -493,9 +491,6 @@ int main( int argc, char *argv[] ){
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
                     i = structure(fp2, i, "if");
-                }
-                else if (strcmp(pars[i].name, "end") == 0){
-                    fputs("    }\n", fp2);
                 }
                 else if (strcmp(pars[i].name, "while") == 0){
                     i = structure(fp2, i, "while");
@@ -539,6 +534,16 @@ int main( int argc, char *argv[] ){
                     }
                 }
                 else if (strcmp(pars[i].type, "Spc") == 0){
+                    puts(pars[i].name);
+                    if (actual_space > strtol(pars[i].name, (char **)NULL, 10)){
+                        fputs("    }\n", fp2);
+                    }
+                    if(pars[i].name[0] == '\0'){
+                        actual_space = 0;
+                    }
+                    else{
+                        actual_space = strtol(pars[i].name, (char **)NULL, 10);
+                    }
                 }
                 break;
             case 'T':

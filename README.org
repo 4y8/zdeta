@@ -21,12 +21,9 @@ while i < 6
            buf = array[i]
            array[i] = array[j]
            array[j] = buf
-        end
         j++
-    end
     i++
     j = i
-end
 print array
 #+END_SRC
 Let's take it part by part:
@@ -48,14 +45,12 @@ while i < 6
            buf = array[i]
            array[i] = array[j]
            array[j] = buf
-        end
         j++
-    end
     i++
     j = i
-end
 #+END_SRC
-Here are the main loops, you've probably noticed that you don't have to put a ":" after conditions nor loops but at the end of each control structure you have to put the keyword end (like in matlab).
+Here are the main loops, you've probably noticed that you don't have to put a
+":" after conditions nor loops or to put "end".
 #+BEGIN_SRC
 print array
 #+END_SRC
