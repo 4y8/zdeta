@@ -6,18 +6,25 @@
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; int type; int len;};
 char symb[12] = {'(',')','{','}',';','"','[',']',',','>','<','='}; // The list of all symbols
-char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "end", "swap", "case", "switch", "iter"}; // The list of all functions
+char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "swap", "case", "switch", "iter"}; // The list of all functions
 char opps[4] = {'+', '/', '-', '%'};
 struct lex pars[300];
 struct var vars[50];
 char conv[2] = {'a', '\0'};
 char str[100];
 int indent = 0; // A variable to keep track of the indentation
-int linum = 1;
-int actual_space = 0;
+int linum = 1; // A variable to keep track of the line for errors
+int actual_space = 0; // A variable to check the indentation
+int last_instruction[6] = {69, 69, 69, 69, 69, 69};
+int indent_level = 0;
+/*
+ * Here is the correspondance for the last_instructions list
+ * 0 = control structure
+ * 1 = instruction
+ */
 
 int isfun(char in[]){
-    for(int i = 0; i < 13; i++){
+    for(int i = 0; i < 12; i++){
         if (strcmp(funs[i], in) == 0){
             return 1;
         }
@@ -341,9 +348,15 @@ int structure(FILE *fp2, int ind, char name[]){
     return ind;
 }
 
-void ellse(){
-
+void ellse(FILE *fp2){
+    if (last_instruction[indent_level] == 0){
+        fputs("else{", fp2);
+    }
+    else{
+        error("Use of else without an if");
+    }
 }
+
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     FILE *fp2 = fopen("testhello.c", "w+");
@@ -373,6 +386,7 @@ int main( int argc, char *argv[] ){
             else{
                 strcpy(pars[k].type, "Str");
             }
+
             strcpy(pars[k].name, str);
             k ++;
         }
@@ -400,15 +414,11 @@ int main( int argc, char *argv[] ){
                         while (c != '\n'){
                             c = fgetc(fp1);
                         }
-                        strcpy(pars[k].type, "Ter");
-                        strcpy(pars[k].name, "Ter");
-                        //k ++;
+                        fseek(fp1, -1, SEEK_CUR);
                     }
                     else{
                         conv[0] = '/';
-                        strcpy(pars[k].type, "Opp");
                         strcpy(pars[k].name, conv);
-                        k ++;
                     }
                 }
                 else{
@@ -461,13 +471,15 @@ int main( int argc, char *argv[] ){
                 k ++;
                 i = 0;
                 strcpy(pars[k].type, "Spc");
-                while(isspace(c)){
-                    c = fgetc(fp1);
-                    i ++;
+                if (isspace(c)){
+                    while(isspace(c)){
+                        c = fgetc(fp1);
+                        i ++;
+                    }
+                    fseek(fp1, -1, SEEK_CUR);
+                    sprintf(pars[k].name, "%d", i);
                 }
-                fseek(fp1, -1, SEEK_CUR);
-                sprintf(pars[k].name, "%d", i);
-            k ++;
+                k ++;
             }
         }
         else if(c == '\t'){
@@ -491,21 +503,28 @@ int main( int argc, char *argv[] ){
                 }
                 else if (strcmp(pars[i].name, "if") == 0){
                     i = structure(fp2, i, "if");
+                    last_instruction[indent_level] = 0;
                 }
                 else if (strcmp(pars[i].name, "while") == 0){
+                    last_instruction[indent_level] = 0;
                     i = structure(fp2, i, "while");
+                }
+                else if (strcmp(pars[i].name, "else") == 0){
+                    ellse(fp2);
                 }
                 break;
             case 'S':
                 if(isvar(pars[i].name)){
                     if(pars[i + 1].name[0] == '+'){
-                        if(pars[i + 1].name[0] == '+'){
+                        if(pars[i + 2].name[0] == '+'){
                             increment(fp2,pars[i].name);
+                            last_instruction[indent_level] = 1;
                         }
                     }
                     else if(pars[i + 1].name[0] == '-'){
-                        if(pars[i + 1].name[0] == '-'){
+                        if(pars[i + 2].name[0] == '-'){
                             decrement(fp2,pars[i].name);
+                            last_instruction[indent_level] = 1;
                         }
                     }
                     else if(strcmp(pars[i + 1].name, "equal") == 0){
@@ -513,6 +532,7 @@ int main( int argc, char *argv[] ){
                         i ++;
                         i = assignvar(fp2, j, i);
                         i++;
+                        last_instruction[indent_level] = 1;
                     }
                 }
                 else if (strcmp(pars[i].name, "equal") == 0){
@@ -528,15 +548,20 @@ int main( int argc, char *argv[] ){
                             i = assignvar(fp2, j, i);
                             i ++;
                         }
+                        last_instruction[indent_level] = 1;
                     }
                     else if(strcmp(pars[i - 1].name, "rightsquarebracket") == 0){
                         i = assignarray(fp2, i);
+                        last_instruction[indent_level] = 1;
                     }
                 }
                 else if (strcmp(pars[i].type, "Spc") == 0){
-                    puts(pars[i].name);
                     if (actual_space > strtol(pars[i].name, (char **)NULL, 10)){
                         fputs("    }\n", fp2);
+                        indent_level --;
+                    }
+                    else{
+                        indent_level ++;
                     }
                     if(pars[i].name[0] == '\0'){
                         actual_space = 0;
