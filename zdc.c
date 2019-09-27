@@ -17,6 +17,7 @@ int linum = 1; // A variable to keep track of the line for errors
 int actual_space = 0; // A variable to check the indentation
 int last_instruction[6] = {69, 69, 69, 69, 69, 69};
 int indent_level = 0;
+
 /*
  * Here is the correspondance for the last_instructions list
  * 0 = control structure
@@ -40,6 +41,7 @@ int isvar(char in[]){
     }
     return 0;
 }
+
 int isinchars(char in[], char check){
     for(int i = 0; i < 12; i++){
         if (in[i] == check){
@@ -348,14 +350,18 @@ int structure(FILE *fp2, int ind, char name[]){
     return ind;
 }
 
-void ellse(FILE *fp2){
+void ellse(FILE *fp2, int index){
     if (last_instruction[indent_level] == 0){
-        fputs("else{", fp2);
+        fputs("else", fp2);
+        if (strcmp("if", pars[index + 1].name) != 0){
+            fputs("{", fp2);
+        }
     }
     else{
         error("Use of else without an if");
     }
 }
+
 
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
@@ -558,12 +564,17 @@ int main( int argc, char *argv[] ){
                 else if (strcmp(pars[i].type, "Spc") == 0){
                     if (actual_space > strtol(pars[i].name, (char **)NULL, 10)){
                         fputs("    }\n", fp2);
-                        indent_level --;
+                        if (indent_level > 0){
+                            indent_level --;
+                        }
                     }
                     else{
                         indent_level ++;
                     }
                     if(pars[i].name[0] == '\0'){
+                        if (indent_level > 0){
+                            indent_level --;
+                        }
                         actual_space = 0;
                     }
                     else{
@@ -575,6 +586,7 @@ int main( int argc, char *argv[] ){
                 linum ++;
                 break;
         }
+        printf("%d", last_instruction[indent_level]);
     }
     /*for(i = 0; i < 200; i++){
         puts(pars[i].name);
