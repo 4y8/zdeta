@@ -313,7 +313,13 @@ int structure(FILE *fp2, int ind, char name[]){
             fputs(" > ", fp2);
         }
         else if (strcmp(pars[ind].name, "exclam") == 0){
-
+            if (strcmp(pars[ind + 1].name, "equal")){
+                fputs(" != ", fp2);
+                ind ++;
+            }
+            else{
+                error("using a '!' without an equal");
+            }
         }
         else{
             error("non-valid condition");
@@ -326,7 +332,18 @@ int structure(FILE *fp2, int ind, char name[]){
         else{
             fputs(pars[ind].name, fp2);
         }
-        fputs("){\n", fp2);
+        if (pars[ind + 1].name[0] == 'T'){
+            fputs("){\n", fp2);
+        }
+        else if(strcmp(pars[ind + 1].name, "and") == 0){
+            structure(fp2, ind + 2, "&&");
+        }
+        else if(strcmp(pars[ind + 1].name, "or") == 0){
+            structure(fp2, ind + 2, "||");
+        }
+        else{
+            error("using non-valid condition end");
+        }
     }
     else if ((vars[i].type == 0) || (strcmp(pars[ind].type, "Num") == 0)){
         ind++;
@@ -345,6 +362,19 @@ int structure(FILE *fp2, int ind, char name[]){
             }
             else if (strcmp(pars[ind].name, "greaterthan") == 0){
                 fputs(" > ", fp2);
+            }
+            else if (strcmp(pars[ind].name, "exclam") == 0){
+                puts(pars[ind + 1].name);
+                if (strcmp(pars[ind + 1].name, "equal") == 0){
+                    fputs(" != ", fp2);
+                    ind ++;
+                }
+                else{
+                    error("using a '!' without an equal");
+                }
+            }
+            else{
+                error("non-valid condition");
             }
             ind ++;
             if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){

@@ -1,19 +1,13 @@
-// Set up Variables
 array = [3, 4, 1, 7, 0, 0]
 i = 0
 j = 0
-buf = 0  // Set up a buffer variable
-
 while i < 6
-    while j < 6
-        if array[i] > array[i]
-           buf = array[i]
-           array[i] = array[j]
-           array[j] = buf
-        end
-        j++
-    end
-    i++
-    j = i
-end
-out x
+  while j < 6
+    if array[j] > array[i]
+      buf = array[i]
+      array[i] = array[j]
+      array[j] = buf
+    j++
+  i++
+  j = i
+print array
