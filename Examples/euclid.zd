@@ -1,0 +1,7 @@
+a = 21
+b = 15
+while b != 0
+ buffer = b
+ b = a % b
+ a = buffer
+print a

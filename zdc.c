@@ -5,7 +5,7 @@
 
 struct lex {char type[5]; char name[50];};
 struct var {char name[50]; int type; int len;};
-char symb[12] = {'(',')','{','}',';','"','[',']',',','>','<','='}; // The list of all symbols
+char symb[13] = {'(',')','{','}',';','"','[',']',',','>','<','=', '!'}; // The list of all symbols
 char *funs[13] = {"let", "fun", "print", "while", "if", "else", "elif", "var", "swap", "case", "switch", "iter"}; // The list of all functions
 char opps[4] = {'+', '/', '-', '%'};
 struct lex pars[300];
@@ -43,7 +43,7 @@ int isvar(char in[]){
 }
 
 int isinchars(char in[], char check){
-    for(int i = 0; i < 12; i++){
+    for(int i = 0; i < 13; i++){
         if (in[i] == check){
             return 1;
         }
@@ -312,6 +312,12 @@ int structure(FILE *fp2, int ind, char name[]){
         else if (strcmp(pars[ind].name, "greaterthan") == 0){
             fputs(" > ", fp2);
         }
+        else if (strcmp(pars[ind].name, "exclam") == 0){
+
+        }
+        else{
+            error("non-valid condition");
+        }
         ind ++;
         i = varind(pars[ind].name);
         if (1 == vars[i].type){
@@ -466,6 +472,12 @@ int main( int argc, char *argv[] ){
                     case '>':
                         strcpy(pars[k].name, "greaterthan");
                         break;
+                    case '!':
+                        strcpy(pars[k].name, "exclam");
+                        break;
+                    case '%':
+                        strcpy(pars[k].name, "mod");
+                        break;
                 }
                 k ++;
             }
@@ -516,7 +528,7 @@ int main( int argc, char *argv[] ){
                     i = structure(fp2, i, "while");
                 }
                 else if (strcmp(pars[i].name, "else") == 0){
-                    ellse(fp2);
+                    ellse(fp2, i);
                 }
                 break;
             case 'S':
@@ -586,11 +598,10 @@ int main( int argc, char *argv[] ){
                 linum ++;
                 break;
         }
-        printf("%d", last_instruction[indent_level]);
     }
-    /*for(i = 0; i < 200; i++){
+    for(i = 0; i < 200; i++){
         puts(pars[i].name);
-    }*/
+    }
     fclose(fp1);
     fputs("    return 0;\n", fp2);
     fputs("}\n", fp2);
