@@ -325,24 +325,21 @@ int structure(FILE *fp2, int ind, char name[]){
             error("non-valid condition");
         }
         ind ++;
-        i = varind(pars[ind].name);
-        if (1 == vars[i].type){
-            ind = arrayelement(fp2, ind);
-        }
-        else{
+        while(1){
+            if (pars[ind].name[0] == 'T'){
+                fputs("){\n", fp2);
+                break;
+            }
+            else if(strcmp(pars[ind ].name, "and") == 0){
+                structure(fp2, ind + 1, "&&");
+                break;
+            }
+            else if(strcmp(pars[ind].name, "or") == 0){
+                structure(fp2, ind + 1, "||");
+                break;
+                }
             fputs(pars[ind].name, fp2);
-        }
-        if (pars[ind + 1].name[0] == 'T'){
-            fputs("){\n", fp2);
-        }
-        else if(strcmp(pars[ind + 1].name, "and") == 0){
-            structure(fp2, ind + 2, "&&");
-        }
-        else if(strcmp(pars[ind + 1].name, "or") == 0){
-            structure(fp2, ind + 2, "||");
-        }
-        else{
-            error("using non-valid condition end");
+            ind ++;
         }
     }
     else if ((vars[i].type == 0) || (strcmp(pars[ind].type, "Num") == 0)){
@@ -377,10 +374,22 @@ int structure(FILE *fp2, int ind, char name[]){
                 error("non-valid condition");
             }
             ind ++;
-            if ((strcmp(pars[ind].type, "Num") == 0) || (isvar(pars[ind].name))){
-                fputs(pars[ind].name,fp2);
+            while(1 == 1){
+                if (pars[ind].name[0] == 'T'){
+                    fputs("){\n", fp2);
+                    break;
+                }
+                else if(strcmp(pars[ind ].name, "and") == 0){
+                    structure(fp2, ind + 1, "&&");
+                    break;
+                }
+                else if(strcmp(pars[ind].name, "or") == 0){
+                    structure(fp2, ind + 1, "||");
+                    break;
+                }
+                fputs(pars[ind].name, fp2);
+                ind ++;
             }
-            fputs("){\n", fp2);
         }
     }
     return ind;
