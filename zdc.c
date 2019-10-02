@@ -337,8 +337,13 @@ int structure(FILE *fp2, int ind, char name[]){
             else if(strcmp(pars[ind].name, "or") == 0){
                 structure(fp2, ind + 1, "||");
                 break;
-                }
-            fputs(pars[ind].name, fp2);
+            }
+            else if(isvar(pars[ind].name) == 1){
+                    ind = arrayelement(fp2, ind);
+            }
+            else{
+                fputs(pars[ind].name, fp2);
+            }
             ind ++;
         }
     }
@@ -374,7 +379,7 @@ int structure(FILE *fp2, int ind, char name[]){
                 error("non-valid condition");
             }
             ind ++;
-            while(1 == 1){
+            while(1){
                 if (pars[ind].name[0] == 'T'){
                     fputs("){\n", fp2);
                     break;
@@ -386,6 +391,9 @@ int structure(FILE *fp2, int ind, char name[]){
                 else if(strcmp(pars[ind].name, "or") == 0){
                     structure(fp2, ind + 1, "||");
                     break;
+                }
+                else if(isvar(pars[ind].name) == 1){
+                    ind = arrayelement(fp2, ind);
                 }
                 fputs(pars[ind].name, fp2);
                 ind ++;
@@ -406,7 +414,6 @@ void ellse(FILE *fp2, int index){
         error("Use of else without an if");
     }
 }
-
 
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
