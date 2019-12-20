@@ -62,20 +62,25 @@ void lexer(FILE *fp1){
         else if (isdigit(c)){
             j = ftell(fp1);
             i = 0;
-            while (isdigit(c)){
+            while (c != ' '){
                 i++;
                 c = fgetc(fp1);
+                if(!isdigit(c)){
+                    (tokens+k)->type = 2;
+                }
             }
             l = ftell(fp1);
             fseek(fp1, j - 1, SEEK_SET);
-            fgets(str, i + 1, fp1);
+            fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            strcpy(pars[k].type, "Num");
-            strcpy(pars[k].name, str);
+            if ((tokens+k)->type != 2){
+                (tokens+k)->type = 3;
+            }
+            strcpy((tokens+k)->value, buffer);
             k ++;
         }
         else {
-            if (isinchars(opps, c)){
+            if (isinchars(operators, c)){
                 strcpy(pars[k].type, "Opp");
                 if(c == '/'){
                     c = fgetc(fp1);
@@ -96,7 +101,7 @@ void lexer(FILE *fp1){
                 }
                 k ++;
             }
-            else if (isinchars(symb, c)){
+            else if (isinchars(symbols, c)){
                 strcpy(pars[k].type, "Symb");
                 switch(c){
                     case '"':
@@ -156,17 +161,6 @@ void lexer(FILE *fp1){
                 }
                 k ++;
             }
-        }
-        else if(c == '\t'){
-            i = 0;
-            strcpy(pars[k].type, "Tab");
-            while(c == '\t'){
-                i ++;
-                c = fgetc(fp1);
-            }
-            sprintf(pars[k].name, "%d", i);
-            fseek(fp1, -1, SEEK_CUR);
-            k ++;
         }
     }
 }
