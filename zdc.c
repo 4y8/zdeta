@@ -8,14 +8,14 @@ struct token {
     enum type type;
     char value[50];
 };
-char symb[17] = {'(',')','{','}',';','"','[',']',',',
-                 '>','<', '=', '!', '+', '/', '-', '%'}; // The list of all symbols
+
+char symbols[9] = {'(',')','{','}',';','"','[',']',','};
+char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *funs[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"}; // The list of all functions
-struct lex pars[300];
-struct var vars[50];
 char conv[2] = {'a', '\0'};
 char str[100];
+struct token *tokens;
 
 int isfun(char in[]){
     for(int i = 0; i < 12; i++){
@@ -36,6 +36,7 @@ int isinchars(char in[], char check){
 }
 
 void lexer(FILE *fp1){
+    tokens = (struct token*) malloc(10 * sizeof(struct token));
     char c = 'a';
     int i = 0;
     int j = 0;
