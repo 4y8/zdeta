@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <string.h>
 
-enum type{operator, keyword, terminator, identifier, number};
+enum type{operator, terminator, identifier, number};
 struct token {
     enum type type;
     char value[50];
@@ -13,8 +13,6 @@ char symbols[9] = {'(',')','{','}',';','"','[',']',','};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *funs[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"}; // The list of all functions
-char conv[2] = {'a', '\0'};
-char str[100];
 struct token *tokens;
 
 int isfun(char in[]){
@@ -42,26 +40,23 @@ void lexer(FILE *fp1){
     int j = 0;
     int k = 0;
     int l = 0;
+    char buffer[100];
+    char conv[2] = {'a', '\0'};
     while(c != EOF){
         c = fgetc(fp1);
         if (isalpha(c)){
             j = ftell(fp1);
             i = 0;
-            while (isalpha(c)){
+            while (c != ' '){
                 i++;
                 c = fgetc(fp1);
             }
             l = ftell(fp1);
             fseek(fp1, j - 1, SEEK_SET);
-            fgets(str, i + 1, fp1);
+            fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            if (isfun(str) == 1){
-                strcpy(pars[k].type, "Fun");
-            }
-            else{
-                strcpy(pars[k].type, "Str");
-            }
-            strcpy(pars[k].name, str);
+            (tokens+k)->type = 2;
+            strcpy((tokens+k)->value, buffer);
             k ++;
         }
         else if (isdigit(c)){
