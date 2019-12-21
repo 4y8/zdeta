@@ -11,6 +11,10 @@ struct token {
     enum type type;
     char value[50];
 };
+struct lexline {
+    struct token *tokens;
+    int size;
+};
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
@@ -34,8 +38,9 @@ int isinchars(char in[], char check){
     return 0;
 }
 
-struct token * lexer(FILE *fp1){
+struct lexline lexer(FILE *fp1){
     struct token *tokens;
+    struct lexline lex;
     tokens = (struct token*) malloc(20 * sizeof(struct token));
     char c = 'a';
     int i = 0, j = 0, k = 0, l = 0;
@@ -56,7 +61,6 @@ struct token * lexer(FILE *fp1){
             fseek(fp1, l - 1, SEEK_SET);
             (tokens+k)->type = 2;
             strcpy((tokens+k)->value, buffer);
-            puts((tokens+k)->value);
             k++;
         }
         else if (isdigit(c)){
@@ -77,40 +81,43 @@ struct token * lexer(FILE *fp1){
                 (tokens+k)->type = 3;
             }
             strcpy((tokens+k)->value, buffer);
-            puts((tokens+k)->value);
             k++;
         }
         else if (isinchars(operators, c)){
             (tokens+k)->type = 0;
             conv[0] = c;
             strcpy((tokens+k)->value, conv);
-            puts((tokens+k)->value);
             k++;
         }
         else if (isinchars(symbols, c)){
             (tokens+k)->type = 1;
             conv[0] = c;
             strcpy((tokens+k)->value, conv);
-            puts((tokens+k)->value);
             k++;
         }
         else if (c == '\n'){
             (tokens+k)->type = 1;
             strcpy((tokens+k)->value, "terminator");
-            puts((tokens+k)->value);
-            k++;
+            tokens = (struct token*) realloc(tokens, (k+1) * sizeof(struct token));
+            lex.size=(k+1);
+            lex.tokens=tokens;
+            return lex;
+            free(tokens);
         }
     }
-    return tokens;
-    free(tokens);
+    exit(0);
 }
 
-void parser(){
-
+void parser(struct lexline lex){
+    for (int i = 0; i < lex.size; i++){
+        puts((lex.tokens+i)->value);
+    }
 }
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
-    lexer(fp1);
+    while(1){
+        parser(lexer(fp1));
+    }
     fclose(fp1);
     return 0;
 }
