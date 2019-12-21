@@ -47,7 +47,7 @@ void lexer(FILE *fp1){
         if (isalpha(c)){
             j = ftell(fp1);
             i = 0;
-            while (c != ' '){
+            while ((c != ' ') && (c != '\n')){
                 i++;
                 c = fgetc(fp1);
             }
@@ -63,7 +63,7 @@ void lexer(FILE *fp1){
         else if (isdigit(c)){
             j = ftell(fp1);
             i = 0;
-            while (c != ' '){
+            while ((c != ' ') && (c != '\n')){
                 i++;
                 c = fgetc(fp1);
                 if(!isdigit(c)){
@@ -73,7 +73,7 @@ void lexer(FILE *fp1){
             l = ftell(fp1);
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
-            fseek(fp1, l - 2, SEEK_SET);
+            fseek(fp1, l - 1, SEEK_SET);
             if ((tokens+k)->type != 2){
                 (tokens+k)->type = 3;
             }
@@ -89,11 +89,18 @@ void lexer(FILE *fp1){
             k++;
         }
         else if (isinchars(symbols, c)){
-            (tokens+k)->type = 1;
-            conv[0] = c;
-            strcpy((tokens+k)->value, conv);
-            puts((tokens+k)->value);
-            k++;
+            if(c == '#'){
+                while(c != '\n'){
+                    c = fgetc(fp1);
+                }
+            }
+            else{
+                (tokens+k)->type = 1;
+                conv[0] = c;
+                strcpy((tokens+k)->value, conv);
+                puts((tokens+k)->value);
+                k++;
+            }
         }
         else if (c == '\n'){
             (tokens+k)->type = 1;
