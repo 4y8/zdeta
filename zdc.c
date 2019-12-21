@@ -3,17 +3,18 @@
 #include <ctype.h>
 #include <string.h>
 
-enum type{operator, separator, identifier, number};
+enum type {operator,
+           separator,
+           identifier,
+           number};
 struct token {
     enum type type;
     char value[50];
 };
-
-char symbols[10]= {'(',')','{','}',';','"','[',']',',','#'};
+char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
-                  "elif", "var", "swap", "case", "switch", "iter"}; // The list of all functions
-struct token *tokens;
+                  "elif", "var", "swap", "case", "switch", "iter"};
 
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
@@ -33,13 +34,11 @@ int isinchars(char in[], char check){
     return 0;
 }
 
-void lexer(FILE *fp1){
-    tokens = (struct token*) malloc(100 * sizeof(struct token));
+struct token * lexer(FILE *fp1){
+    struct token *tokens;
+    tokens = (struct token*) malloc(20 * sizeof(struct token));
     char c = 'a';
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    int l = 0;
+    int i = 0, j = 0, k = 0, l = 0;
     char buffer[100];
     char conv[2] = {'a', '\0'};
     while(c != EOF){
@@ -89,18 +88,11 @@ void lexer(FILE *fp1){
             k++;
         }
         else if (isinchars(symbols, c)){
-            if(c == '#'){
-                while(c != '\n'){
-                    c = fgetc(fp1);
-                }
-            }
-            else{
-                (tokens+k)->type = 1;
-                conv[0] = c;
-                strcpy((tokens+k)->value, conv);
-                puts((tokens+k)->value);
-                k++;
-            }
+            (tokens+k)->type = 1;
+            conv[0] = c;
+            strcpy((tokens+k)->value, conv);
+            puts((tokens+k)->value);
+            k++;
         }
         else if (c == '\n'){
             (tokens+k)->type = 1;
@@ -109,10 +101,16 @@ void lexer(FILE *fp1){
             k++;
         }
     }
+    return tokens;
+    free(tokens);
 }
 
+void parser(){
+
+}
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     lexer(fp1);
+    fclose(fp1);
     return 0;
 }
