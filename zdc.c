@@ -6,12 +6,23 @@
 enum type {operator,
            separator,
            identifier,
-           number};
+           number,
+           keyword};
 enum var_types{integer,
                floating,
                string,
                charachter,
                boolean};
+enum instruction_type{function,
+                      function_call,
+                      znumber,
+                      zbool,
+                      zstring,
+                      vardeclaration,
+                      ifstatement,
+                      whilestatement,
+                      returnstatement,
+                      AST};
 struct token {
     enum type type;
     char value[50];
@@ -25,12 +36,42 @@ struct var {
     char value[50];
     int init_value;
 };
+
+struct leaf {
+    enum instruction_type type;
+    union {
+        struct whilestatement       *ast_while;
+        struct leaf                 *ast;
+        struct functioncall         *ast_function;
+        struct number               *ast_number;
+        struct string               *ast_string;
+        struct variable_declaration *ast_vardeclaration;
+    };
+};
+struct whilestatement{
+    struct leaf *condition;
+    struct leaf *body;
+};
+struct functioncall{
+    char function[15];
+    struct leaf *body;
+};
+struct number{
+    float value;
+};
+struct string{
+    char value[100];
+};
+struct variable_declaration {
+    char name[30];
+};
 struct var symbol_table[50];
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"};
 int linum = 1;
+int varind = 0;
 
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
@@ -80,7 +121,12 @@ struct lexline lexer(FILE *fp1){
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            (tokens+k)->type = 2;
+            if (iskeyword(buffer)){
+                (tokens+k)->type = 4;
+            }
+            else{
+                (tokens+k)->type = 2;
+            }
             strcpy((tokens+k)->value, buffer);
             k++;
         }
@@ -130,31 +176,6 @@ struct lexline lexer(FILE *fp1){
 
 void parser(struct lexline lex){
     struct token *tokens = lex.tokens;
-    for (int i = lex.size; i > -1; i--){
-        switch ((tokens+i)->type){
-            case operator:
-                switch((tokens+i)->value[0]){
-                    case '=':
-                        if ((tokens+i+1)->type != 0){
-                            if (((tokens+i-1)->type == 2) && (iskeyword((tokens+i-1)->value) == 0)){
-                                if (isvar((tokens+i-1)->value)){
-
-                                }
-                            }
-                        }
-                        else{
-                        }
-                        break;
-                }
-                break;
-            case separator:
-                break;
-            case identifier:
-                break;
-            case number:
-                break;
-        }
-    }
 }
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
