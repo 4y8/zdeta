@@ -7,6 +7,11 @@ enum type {operator,
            separator,
            identifier,
            number};
+enum var_types{integer,
+               floating,
+               string,
+               charachter,
+               boolean};
 struct token {
     enum type type;
     char value[50];
@@ -14,6 +19,11 @@ struct token {
 struct lexline {
     struct token *tokens;
     int size;
+};
+struct var {
+    enum var_types type;
+    char value[50];
+    int init_value;
 };
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
@@ -97,9 +107,8 @@ struct lexline lexer(FILE *fp1){
         }
         else if (c == '\n'){
             (tokens+k)->type = 1;
-            strcpy((tokens+k)->value, "terminator");
-            tokens = (struct token*) realloc(tokens, (k+1) * sizeof(struct token));
-            lex.size=(k+1);
+            tokens = (struct token*) realloc(tokens, k * sizeof(struct token));
+            lex.size=(k);
             lex.tokens=tokens;
             return lex;
             free(tokens);
@@ -109,8 +118,23 @@ struct lexline lexer(FILE *fp1){
 }
 
 void parser(struct lexline lex){
-    for (int i = 0; i < lex.size; i++){
-        puts((lex.tokens+i)->value);
+    struct token *tokens = lex.tokens;
+    for (int i = lex.size; i > -1; i--){
+        switch ((tokens+i)->type){
+            case operator:
+                switch((tokens+i)->value[0]){
+                    case '=':
+
+                }
+                break;
+            case separator:
+                break;
+            case identifier:
+                break;
+            case number:
+                break;
+        }
+        puts((tokens+i)->value);
     }
 }
 int main( int argc, char *argv[] ){
