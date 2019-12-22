@@ -25,10 +25,12 @@ struct var {
     char value[50];
     int init_value;
 };
+struct var symbol_table[50];
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"};
+int linum = 1;
 
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
@@ -48,13 +50,22 @@ int isinchars(char in[], char check){
     return 0;
 }
 
+int isvar(char in[]){
+    for(int i = 0; i < 50; i++){
+        if (strcmp(symbol_table[i].value, in) == 0){
+            return 1;
+        }
+    }
+    return 0;
+}
+
 struct lexline lexer(FILE *fp1){
     struct token *tokens;
     struct lexline lex;
     tokens = (struct token*) malloc(20 * sizeof(struct token));
     char c = 'a';
     int i = 0, j = 0, k = 0, l = 0;
-    char buffer[100];
+    char buffer[60];
     char conv[2] = {'a', '\0'};
     while(c != EOF){
         c = fgetc(fp1);
@@ -124,7 +135,16 @@ void parser(struct lexline lex){
             case operator:
                 switch((tokens+i)->value[0]){
                     case '=':
+                        if ((tokens+i+1)->type != 0){
+                            if (((tokens+i-1)->type == 2) && (iskeyword((tokens+i-1)->value) == 0)){
+                                if (isvar((tokens+i-1)->value)){
 
+                                }
+                            }
+                        }
+                        else{
+                        }
+                        break;
                 }
                 break;
             case separator:
@@ -134,13 +154,13 @@ void parser(struct lexline lex){
             case number:
                 break;
         }
-        puts((tokens+i)->value);
     }
 }
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     while(1){
         parser(lexer(fp1));
+        linum ++;
     }
     fclose(fp1);
     return 0;
