@@ -56,7 +56,7 @@ struct variable_declaration {
     char name[30];
 };
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
-char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
+char operators[9] = {'>','<', '=', '!', '+', '/', '-', '%','^'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"};
 int linum = 1;
@@ -78,6 +78,33 @@ int isinchars(char in[], char check){
         }
     }
     return 0;
+}
+
+int operatorPrecedence (char operator[]){
+    int precedence;
+    if (((strcmp(operator, "and")) == 0) ||
+        ((strcmp(operator, "or")) == 0) ||
+        ((strcmp(operator, "and")) == 0) ||
+        ((strcmp(operator, "==")) == 0) ||
+        ((strcmp(operator, "<")) == 0) ||
+        ((strcmp(operator, ">")) == 0) ||
+        ((strcmp(operator, ">=")) == 0) ||
+        ((strcmp(operator, "<=")) == 0) ||
+        ((strcmp(operator, "?")) == 0))
+    {precedence = 0;}
+    else if (((strcmp(operator, "+")) == 0) ||
+             ((strcmp(operator, "-")) == 0))
+    {precedence = 1;}
+    else if (((strcmp(operator, "*")) == 0) ||
+             ((strcmp(operator, "/")) == 0))
+    {precedence = 2;}
+    else if (strcmp(operator, "^") == 0)
+    {precedence = 3;}
+    else if (strcmp(operator, ".") == 0)
+    {precedence = 4;}
+    else if (strcmp(operator, "=") == 0)
+    {precedence = 5;}
+    return precedence;
 }
 
 struct lexline lexer(FILE *fp1){
@@ -164,14 +191,16 @@ struct lexline lexer(FILE *fp1){
     exit(0);
 }
 
-void parser(struct lexline lex){
+void parsestatement(struct lexline lex){
     struct token *tokens = lex.tokens;
     struct leaf *Ast;
     struct token *operators;
-    Ast = (struct leaf*) malloc(20 * sizeof(struct leaf));
+    Ast = (struct leaf*) malloc(14 * sizeof(struct leaf));
+    operators = (struct token*) malloc(10 * sizeof(struct token));
     int aindex = 0;
     int size = 0;
-    while( size < 20 ){
+    int currrent_operator = 0;
+    while( 1 ){
         struct token token;
         token.type = (tokens+size)->type;
         strcpy(token.value, (tokens+size)->value);
@@ -189,6 +218,11 @@ void parser(struct lexline lex){
             aindex ++;
             size ++;
         }
+        if (token.type == 2){
+            while (currrent_operator > 0){
+
+            }
+        }
     }
     printf("%d",(Ast)->ast_number->value);
     free(tokens);
@@ -199,7 +233,7 @@ void parser(struct lexline lex){
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     while(1){
-        parser(lexer(fp1));
+        parsestatement(lexer(fp1));
         linum ++;
     }
     fclose(fp1);
