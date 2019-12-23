@@ -81,7 +81,7 @@ int isinchars(char in[], char check){
 }
 
 int operatorPrecedence (char operator[]){
-    int precedence;
+    int precedence = -1;
     if (((strcmp(operator, "and")) == 0) ||
         ((strcmp(operator, "or")) == 0) ||
         ((strcmp(operator, "and")) == 0) ||
@@ -151,6 +151,7 @@ struct lexline lexer(FILE *fp1){
             fseek(fp1, l - 1, SEEK_SET);
             (tokens+k)->type = 3;
             strcpy((tokens+k)->value, buffer);
+            puts((tokens+k)->value);
             k++;
         }
         else if (isinchars(operators, c)){
@@ -168,7 +169,7 @@ struct lexline lexer(FILE *fp1){
             else{
                 conv[0] = c;
                 strcpy((tokens+k)->value, conv);
-                fseek(fp1, -1, SEEK_CUR);
+                fseek(fp1, ftell(fp1)-1, SEEK_SET);
             }
             k++;
         }
@@ -195,8 +196,9 @@ struct lexline lexer(FILE *fp1){
         }
         else if (c == '\n'){
             (tokens+k)->type = 1;
-            tokens = (struct token*) realloc(tokens, k * sizeof(struct token));
-            lex.size=(k);
+            strcpy((tokens+k)->value, "terminator");
+            tokens = (struct token*) realloc(tokens, (k + 1) * sizeof(struct token));
+            lex.size=(k + 1);
             lex.tokens=tokens;
             return lex;
             free(tokens);
@@ -208,37 +210,63 @@ struct lexline lexer(FILE *fp1){
 void parsestatement(struct lexline lex){
     struct token *tokens = lex.tokens;
     struct leaf *Ast;
-    struct token *operators;
-    Ast = (struct leaf*) malloc(14 * sizeof(struct leaf));
-    operators = (struct token*) malloc(10 * sizeof(struct token));
+    struct token operators[5];
+    Ast = (struct leaf*) malloc(lex.size * sizeof(struct leaf));
     int aindex = 0;
     int size = 0;
     int currrent_operator = 0;
-    while( 1 ){
+    while(size <= lex.size){
+        puts((tokens+size)->value);
         struct token token;
         token.type = (tokens+size)->type;
         strcpy(token.value, (tokens+size)->value);
         if (token.type == 3){
-            (Ast+aindex) -> ast_number = (struct number*) malloc(sizeof(struct number));
-            (Ast+aindex)->type = 2;
-            ((Ast+aindex) -> ast_number) -> value = atoi(token.value);
+            (Ast + aindex) -> ast_number = (struct number*) malloc(sizeof(struct number));
+            (Ast + aindex) -> type = 2;
+            ((Ast + aindex) -> ast_number) -> value = atoi(token.value);
             aindex ++;
             size ++;
         }
         if (token.type == 5){
             (Ast+aindex) -> ast_string = (struct string*) malloc(sizeof(struct string));
             (Ast+aindex)->type = 4;
-            strcpy(((Ast+aindex) -> ast_string) -> value, token.value);
+            strcpy(((Ast + aindex) -> ast_string) -> value, token.value);
             aindex ++;
             size ++;
         }
-        if (token.type == 2){
+        if (token.type == 0){
             while (currrent_operator > 0){
-
+                struct token operator = operators[currrent_operator];
+                if (operatorPrecedence(token.value) <= operatorPrecedence(operator.value)){
+                    struct leaf *arg2 = Ast + aindex - 2;
+                    (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
+                    (Ast + aindex - 2) -> ast_function -> body  = (struct leaf*) malloc(2 * sizeof(struct leaf));
+                    (Ast + aindex - 2) -> type = 1;
+                    strcpy(((Ast + aindex - 2) -> ast_function) -> function, operator.value);
+                    (Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
+                    (Ast + aindex - 2) -> ast_function -> body = arg2;
+                    aindex --;
+                    currrent_operator --;
+                }
+                else{
+                    break;
+                }
             }
+            operators[currrent_operator] = token;
+            currrent_operator ++;
+            size ++;
+        }
+        if (strcmp(token.value, "terminator") == 0){
+            break;
+        }
+        if (token.type == 4){
+            size ++;
+        }
+        if (token.type == 2){
+            size ++;
         }
     }
-    printf("%d",(Ast)->ast_number->value);
+    printf("%d", Ast -> type);
     free(tokens);
     free(Ast);
     return;
