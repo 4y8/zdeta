@@ -56,7 +56,7 @@ struct variable_declaration {
     char name[30];
 };
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
-char operators[9] = {'>','<', '=', '!', '+', '/', '-', '%','^'};
+char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"};
 int linum = 1;
@@ -111,7 +111,8 @@ struct lexline lexer(FILE *fp1){
     struct token *tokens;
     struct lexline lex;
     tokens = (struct token*) malloc(20 * sizeof(struct token));
-    char c = 'a';
+    char c = ' ';
+    char d = ' ';
     int i = 0, j = 0, k = 0, l = 0;
     char buffer[60];
     char conv[2] = {'a', '\0'};
@@ -154,8 +155,21 @@ struct lexline lexer(FILE *fp1){
         }
         else if (isinchars(operators, c)){
             (tokens+k)->type = 0;
-            conv[0] = c;
-            strcpy((tokens+k)->value, conv);
+            d = fgetc(fp1);
+            if ((c == '=') && (d == '=')){
+                strcpy((tokens+k)->value, "==");
+            }
+            else if ((c == '<') && (d == '=')){
+                strcpy((tokens+k)->value, "<=");
+            }
+            else if ((c == '>') && (d == '=')){
+                strcpy((tokens+k)->value, ">=");
+            }
+            else{
+                conv[0] = c;
+                strcpy((tokens+k)->value, conv);
+                fseek(fp1, -1, SEEK_CUR);
+            }
             k++;
         }
         else if (isinchars(symbols, c)){
