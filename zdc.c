@@ -7,12 +7,8 @@ enum type {operator,
            separator,
            identifier,
            number,
-           keyword};
-enum var_types{integer,
-               floating,
-               string,
-               charachter,
-               boolean};
+           keyword,
+           string};
 enum instruction_type{function,
                       function_call,
                       znumber,
@@ -31,12 +27,6 @@ struct lexline {
     struct token *tokens;
     int size;
 };
-struct var {
-    enum var_types type;
-    char value[50];
-    int init_value;
-};
-
 struct leaf {
     enum instruction_type type;
     union {
@@ -57,7 +47,7 @@ struct functioncall{
     struct leaf *body;
 };
 struct number{
-    float value;
+    int value;
 };
 struct string{
     char value[100];
@@ -65,7 +55,6 @@ struct string{
 struct variable_declaration {
     char name[30];
 };
-struct var symbol_table[50];
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
 char operators[8] = {'>','<', '=', '!', '+', '/', '-', '%'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
@@ -85,15 +74,6 @@ int iskeyword(char in[]){
 int isinchars(char in[], char check){
     for(int i = 0; i < 10; i++){
         if (in[i] == check){
-            return 1;
-        }
-    }
-    return 0;
-}
-
-int isvar(char in[]){
-    for(int i = 0; i < 50; i++){
-        if (strcmp(symbol_table[i].value, in) == 0){
             return 1;
         }
     }
@@ -136,17 +116,12 @@ struct lexline lexer(FILE *fp1){
             while ((c != ' ') && (c != '\n')){
                 i++;
                 c = fgetc(fp1);
-                if(!isdigit(c)){
-                    (tokens+k)->type = 2;
-                }
             }
             l = ftell(fp1);
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            if ((tokens+k)->type != 2){
-                (tokens+k)->type = 3;
-            }
+            (tokens+k)->type = 3;
             strcpy((tokens+k)->value, buffer);
             k++;
         }
@@ -157,9 +132,24 @@ struct lexline lexer(FILE *fp1){
             k++;
         }
         else if (isinchars(symbols, c)){
-            (tokens+k)->type = 1;
-            conv[0] = c;
-            strcpy((tokens+k)->value, conv);
+            if (c == '"'){
+                j = ftell(fp1);
+                i = 0;
+                while (c != '"'){
+                    i++;
+                    c = fgetc(fp1);
+                }
+                l = ftell(fp1);
+                fseek(fp1, j - 1, SEEK_SET);
+                fgets(buffer, i + 1, fp1);
+                fseek(fp1, l - 1, SEEK_SET);
+                (tokens+k)->type = 5;
+            }
+            else{
+                (tokens+k)->type = 1;
+                conv[0] = c;
+                strcpy((tokens+k)->value, conv);
+            }
             k++;
         }
         else if (c == '\n'){
@@ -176,7 +166,36 @@ struct lexline lexer(FILE *fp1){
 
 void parser(struct lexline lex){
     struct token *tokens = lex.tokens;
+    struct leaf *Ast;
+    struct token *operators;
+    Ast = (struct leaf*) malloc(20 * sizeof(struct leaf));
+    int aindex = 0;
+    int size = 0;
+    while( size < 20 ){
+        struct token token;
+        token.type = (tokens+size)->type;
+        strcpy(token.value, (tokens+size)->value);
+        if (token.type == 3){
+            (Ast+aindex) -> ast_number = (struct number*) malloc(sizeof(struct number));
+            (Ast+aindex)->type = 2;
+            ((Ast+aindex) -> ast_number) -> value = atoi(token.value);
+            aindex ++;
+            size ++;
+        }
+        if (token.type == 5){
+            (Ast+aindex) -> ast_string = (struct string*) malloc(sizeof(struct string));
+            (Ast+aindex)->type = 4;
+            strcpy(((Ast+aindex) -> ast_string) -> value, token.value);
+            aindex ++;
+            size ++;
+        }
+    }
+    printf("%d",(Ast)->ast_number->value);
+    free(tokens);
+    free(Ast);
+    return;
 }
+
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     while(1){
