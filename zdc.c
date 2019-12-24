@@ -26,6 +26,7 @@ struct token {
 struct lexline {
     struct token *tokens;
     int size;
+    int base_value;
 };
 struct leaf {
     enum instruction_type type;
@@ -198,7 +199,8 @@ struct lexline lexer(FILE *fp1){
             (tokens+k)->type = 1;
             strcpy((tokens+k)->value, "terminator");
             tokens = (struct token*) realloc(tokens, (k + 1) * sizeof(struct token));
-            lex.size=(k + 1);
+            lex.size = (k + 1);
+            lex.base_value = 0;
             lex.tokens=tokens;
             return lex;
             free(tokens);
@@ -207,14 +209,14 @@ struct lexline lexer(FILE *fp1){
     exit(0);
 }
 
-void parsestatement(struct lexline lex){
+struct leaf * parsestatement(struct lexline lex){
     struct token *tokens = lex.tokens;
     struct leaf *Ast;
     struct token operators[5];
     Ast = (struct leaf*) malloc(lex.size * sizeof(struct leaf));
     int aindex = 0;
-    int size = 0;
-    int currrent_operator = 0;
+    int size = lex.base_value;
+    int current_operator = 0;
     while(size <= lex.size){
         puts((tokens+size)->value);
         struct token token;
@@ -227,16 +229,16 @@ void parsestatement(struct lexline lex){
             aindex ++;
             size ++;
         }
-        if (token.type == 5){
+        else if (token.type == 5){
             (Ast+aindex) -> ast_string = (struct string*) malloc(sizeof(struct string));
             (Ast+aindex)->type = 4;
             strcpy(((Ast + aindex) -> ast_string) -> value, token.value);
             aindex ++;
             size ++;
         }
-        if (token.type == 0){
-            while (currrent_operator > 0){
-                struct token operator = operators[currrent_operator];
+        else if (token.type == 0){
+            while (current_operator > 0){
+                struct token operator = operators[current_operator];
                 if (operatorPrecedence(token.value) <= operatorPrecedence(operator.value)){
                     struct leaf *arg2 = Ast + aindex - 2;
                     (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -246,30 +248,54 @@ void parsestatement(struct lexline lex){
                     (Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
                     (Ast + aindex - 2) -> ast_function -> body = arg2;
                     aindex --;
-                    currrent_operator --;
+                    current_operator --;
                 }
                 else{
                     break;
                 }
             }
-            operators[currrent_operator] = token;
-            currrent_operator ++;
+            operators[current_operator] = token;
+            current_operator ++;
             size ++;
         }
-        if (strcmp(token.value, "terminator") == 0){
+        if (token.type == 1){
+            if(token.value[1] == '('){
+                size ++;
+                lex.base_value = size;
+                (Ast + aindex) -> ast = parsestatement(lex);
+                size ++;
+                aindex ++;
+            }
+            else if (')'){
+                break;
+            }
+        }
+        else if (strcmp(token.value, "terminator") == 0){
             break;
         }
-        if (token.type == 4){
+        else if (token.type == 4){
             size ++;
         }
-        if (token.type == 2){
+        else if (token.type == 2){
             size ++;
         }
     }
+    while(current_operator > 0){
+        printf("%d",aindex);
+        struct leaf *arg2 = Ast + aindex - 2;
+        (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
+        (Ast + aindex - 2) -> ast_function -> body  = (struct leaf*) malloc(2 * sizeof(struct leaf));
+        (Ast + aindex - 2) -> type = 1;
+        strcpy(((Ast + aindex - 2) -> ast_function) -> function, operators[current_operator].value);
+        (Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
+        (Ast + aindex - 2) -> ast_function -> body = arg2;
+        aindex --;
+        current_operator --;
+    }
     printf("%d", Ast -> type);
+    return(Ast);
     free(tokens);
     free(Ast);
-    return;
 }
 
 int main( int argc, char *argv[] ){
