@@ -209,7 +209,7 @@ struct lexline lexer(FILE *fp1){
     exit(0);
 }
 
-struct leaf * parsestatement(struct lexline lex){
+struct leaf * parsestatement(struct lexline lex, char terminator2){
     struct token *tokens = lex.tokens;
     struct leaf *Ast;
     struct token operators[5];
@@ -246,7 +246,7 @@ struct leaf * parsestatement(struct lexline lex){
                     (Ast + aindex - 2) -> type = 1;
                     strcpy(((Ast + aindex - 2) -> ast_function) -> function, operator.value);
                     (Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
-                    (Ast + aindex - 2) -> ast_function -> body = arg2;
+                    (((Ast + aindex - 2) -> ast_function) -> body + 1) -> type = arg2 -> type;
                     aindex --;
                     current_operator --;
                 }
@@ -262,7 +262,8 @@ struct leaf * parsestatement(struct lexline lex){
             if(token.value[1] == '('){
                 size ++;
                 lex.base_value = size;
-                (Ast + aindex) -> ast = parsestatement(lex);
+                (Ast + aindex) -> type = 9;
+                (Ast + aindex) -> ast = parsestatement(lex, '\n');
                 size ++;
                 aindex ++;
             }
@@ -274,14 +275,18 @@ struct leaf * parsestatement(struct lexline lex){
             break;
         }
         else if (token.type == 4){
-            size ++;
+            if (strcmp(token.value, "let") == 0){
+                (Ast + aindex) -> type = 5;
+                (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration*) malloc(sizeof(struct variable_declaration));
+                strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
+                size ++;
+            }
         }
         else if (token.type == 2){
             size ++;
         }
     }
     while(current_operator > 0){
-        printf("%d",aindex);
         struct leaf *arg2 = Ast + aindex - 2;
         (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
         (Ast + aindex - 2) -> ast_function -> body  = (struct leaf*) malloc(2 * sizeof(struct leaf));
@@ -292,7 +297,8 @@ struct leaf * parsestatement(struct lexline lex){
         aindex --;
         current_operator --;
     }
-    printf("%d", Ast -> type);
+    printf("%d",aindex);
+    puts(Ast -> ast_function -> function);
     return(Ast);
     free(tokens);
     free(Ast);
@@ -301,7 +307,7 @@ struct leaf * parsestatement(struct lexline lex){
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     while(1){
-        parsestatement(lexer(fp1));
+        parsestatement(lexer(fp1), '\n');
         linum ++;
     }
     fclose(fp1);
