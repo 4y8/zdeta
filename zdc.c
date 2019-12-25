@@ -9,8 +9,6 @@ enum type {operator,
            number,
            keyword,
            string};
-enum asts {main_ast,
-           ast_arg2};
 enum instruction_type{function,
                       function_call,
                       znumber,
@@ -217,18 +215,47 @@ struct lexline lexer(FILE *fp1){
     exit(0);
 }
 
-void copy_ast(enum asts transmitter, enum asts receiver, int index1, int index2){
-    if (transmitter == 0){
-        struct leaf *transmitter = Ast + index1;
-    }
-    else if (transmitter == 1){
-        struct leaf *transmitter = arg2 + index1;
-    }
-    if (receiver == 0){
-        struct leaf *receiver = Ast + index1;
-    }
-    else if (receiver == 1){
-        struct leaf *receiver = arg2 + index1;
+void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2){
+    transmitter += index1;
+    receiver += index2;
+    receiver -> type = transmitter -> type;
+    switch(transmitter -> type){
+        case 0:
+            break;
+        case 1:
+            receiver -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
+            strcpy(receiver -> ast_function -> function, transmitter -> ast_function -> function);
+            receiver -> ast_function -> body = (struct leaf*) malloc(2 * sizeof(struct leaf));
+            copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, 0, 0);
+            copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, 1, 0);
+            break;
+        case 2:
+            receiver -> ast_number = (struct number*) malloc(sizeof(struct number));
+            receiver -> ast_number -> value = transmitter -> ast_number -> value;
+            break;
+        case 3:
+            break;
+        case 4:
+            receiver -> ast_string = (struct string*) malloc(sizeof(struct string));
+            strcpy(receiver -> ast_string -> value, transmitter -> ast_string -> value);
+            break;
+        case 5:
+            receiver -> ast_vardeclaration = (struct variable_declaration*) malloc(sizeof(struct variable_declaration));
+            strcpy(receiver -> ast_vardeclaration -> name, transmitter -> ast_vardeclaration -> name);
+            break;
+        case 6:
+            break;
+        case 7:
+            break;
+        case 8:
+            break;
+        case 9:
+            receiver -> ast = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(transmitter -> ast, transmitter -> ast, 0, 0);
+            break;
+        case 10:
+           
+            break;
     }
 }
 
@@ -313,6 +340,7 @@ struct leaf * parsestatement(struct lexline lex, char terminator2){
     }
     current_operator --;
     while(current_operator >= 0){
+        arg2 = (struct leaf*) malloc(sizeof(struct leaf));
         arg2 -> type = (Ast + aindex - 2) -> type;
         struct token operator = operators[current_operator];
         (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -326,7 +354,7 @@ struct leaf * parsestatement(struct lexline lex, char terminator2){
         aindex --;
         current_operator --;
     }
-    printf("%d", (Ast + 1) -> ast_function -> body -> type);
+    printf("%ld", sizeof(Ast));
     return(Ast);
     free(tokens);
     free(Ast);
