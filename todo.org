@@ -1,11 +1,12 @@
 #+TITLE: TODO
 * Core functions
-** TODO Implements errors [40%]
+** TODO Implements errors [0]
 ** TODO Add floats
 ** TODO More operations [1/2]
-+ [X] decrement
++ [ ] decrement
 + [ ] euclidian division
 ** TODO Add control structures [0/4]
++ [ ] if
 + [ ] else
 + [ ] elif
 + [ ] for
@@ -25,8 +26,8 @@
 ** DONE Add comments
 ** DONE Add command line interface
 ** TODO Create a REPL
-** TODO Create an interpreter
-* Git Page
+*** TODO Create an interpreter
+* Github Page
 ** DONE Setup the git page
 ** TODO Write a good README [40%]
 ** TODO Write more examples

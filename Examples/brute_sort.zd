@@ -3,7 +3,7 @@ i = 0
 j = 0
 while i < 6
   while j < 6
-    if array[j] > array[i]
+    if array[j] > array[i ]
       buf = array[i]
       array[i] = array[j]
       array[j] = buf

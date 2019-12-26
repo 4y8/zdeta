@@ -105,7 +105,8 @@ int operatorPrecedence (char operator[]){
              ((strcmp(operator, "-")) == 0))
     {precedence = 1;}
     else if (((strcmp(operator, "*")) == 0) ||
-             ((strcmp(operator, "/")) == 0))
+             ((strcmp(operator, "/")) == 0)||
+             ((strcmp(operator, "%")) == 0))
     {precedence = 2;}
     else if (strcmp(operator, "^") == 0)
     {precedence = 3;}
@@ -130,7 +131,7 @@ struct lexline lexer(FILE *fp1){
         if (isalpha(c)){
             j = ftell(fp1);
             i = 0;
-            while ((c != ' ') && (c != '\n')){
+            while ((c != ' ') && (c != '\n') && (!isinchars(symbols, c)) && (!isinchars(operators, c))){
                 i++;
                 c = fgetc(fp1);
             }
@@ -179,7 +180,7 @@ struct lexline lexer(FILE *fp1){
                 strcpy((tokens+k)->value, conv);
                 fseek(fp1, ftell(fp1)-1, SEEK_SET);
             }
-            k++;
+            k ++;
         }
         else if (isinchars(symbols, c)){
             if (c == '"'){
@@ -211,6 +212,11 @@ struct lexline lexer(FILE *fp1){
             lex.tokens=tokens;
             return lex;
             free(tokens);
+        }
+        else if (c == '\t'){
+            (tokens + k) -> type = 1;
+            strcpy((tokens+k)->value, "tabulation");
+            k ++;
         }
     }
     exit(0);
@@ -329,8 +335,8 @@ struct leaf * parsestatement(struct lexline lex, char terminator2){
                 (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration*) malloc(sizeof(struct variable_declaration));
                 strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
                 aindex ++;
-                size ++;
             }
+            size ++;
         }
         else if (token.type == 2){
             (Ast + aindex) -> type = 10;
@@ -343,23 +349,17 @@ struct leaf * parsestatement(struct lexline lex, char terminator2){
     current_operator --;
     while(current_operator >= 0){
         arg2 = (struct leaf*) malloc(sizeof(struct leaf));
-        arg2 -> type = (Ast + aindex - 2) -> type;
+        copy_ast(Ast, arg2, aindex - 2, 0);
         struct token operator = operators[current_operator];
         (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
         (Ast + aindex - 2) -> ast_function -> body = (struct leaf*) malloc( 2 * sizeof(struct leaf));
         (Ast + aindex - 2) -> type = 1;
         strcpy(((Ast + aindex - 2) -> ast_function) -> function, operators[current_operator].value);
-        copy_ast(Ast, (Ast + aindex - 2) -> ast_function -> body, aindex - 1, 0);
-        /*(Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
-        ((Ast + aindex - 2)->ast_function) -> body ++;
-        ((Ast + aindex - 2)->ast_function) -> body -> type = arg2 -> type;
-        ((Ast + aindex - 2)->ast_function) -> body --;*/
-        copy_ast(arg2, (Ast + aindex - 2) -> ast_function -> body, 0, 1);
+        copy_ast(arg2, (Ast + aindex - 2) -> ast_function -> body, 0, 0);
+        copy_ast(Ast, (Ast + aindex - 2) -> ast_function -> body, aindex - 1, 1);
         aindex --;
         current_operator --;
     }
-    (Ast+1) -> ast_function -> body ++;
-    printf("%d", (Ast+1) -> ast_function -> body -> type);
     return(Ast);
     free(tokens);
     free(Ast);
