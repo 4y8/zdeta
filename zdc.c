@@ -46,6 +46,7 @@ struct whilestatement{
     struct leaf *body;
 };
 struct functioncall{
+    int body_length;
     char function[15];
     struct leaf *body;
 };
@@ -254,9 +255,10 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             copy_ast(transmitter -> ast, transmitter -> ast, 0, 0);
             break;
         case 10:
-           
             break;
     }
+    transmitter -= index1;
+    receiver -= index2;
 }
 
 struct leaf * parsestatement(struct lexline lex, char terminator2){
@@ -347,14 +349,17 @@ struct leaf * parsestatement(struct lexline lex, char terminator2){
         (Ast + aindex - 2) -> ast_function -> body = (struct leaf*) malloc( 2 * sizeof(struct leaf));
         (Ast + aindex - 2) -> type = 1;
         strcpy(((Ast + aindex - 2) -> ast_function) -> function, operators[current_operator].value);
-        (Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
+        copy_ast(Ast, (Ast + aindex - 2) -> ast_function -> body, aindex - 1, 0);
+        /*(Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
         ((Ast + aindex - 2)->ast_function) -> body ++;
         ((Ast + aindex - 2)->ast_function) -> body -> type = arg2 -> type;
-        ((Ast + aindex - 2)->ast_function) -> body --;
+        ((Ast + aindex - 2)->ast_function) -> body --;*/
+        copy_ast(arg2, (Ast + aindex - 2) -> ast_function -> body, 0, 1);
         aindex --;
         current_operator --;
     }
-    printf("%ld", sizeof(Ast));
+    (Ast+1) -> ast_function -> body ++;
+    printf("%d", (Ast+1) -> ast_function -> body -> type);
     return(Ast);
     free(tokens);
     free(Ast);
