@@ -26,13 +26,13 @@ enum instruction_type{function,
 // Define the structure for a token with a type and a name
 struct token {
     enum type type;
-    char value[50];
+    char      value[50];
 };
 // Define the structure for a list of tokens
 struct lexline {
     struct token *tokens;
-    int size;
-    int base_value;
+    int           size;
+    int           base_value;
 };
 // Define the structure for a node of an AST
 struct leaf {
@@ -54,6 +54,7 @@ struct whilestatement{
     struct leaf *body;
 };
 struct ifstatement{
+    int          body_length;
     struct leaf *condition;
     struct leaf *body;
 };
@@ -252,15 +253,26 @@ struct lexline lexer(FILE *fp1, char breaker){
     exit(0);
 }
 
-void printAST(struct leaf *AST){
+void tabulation(int tabs){
+    for(int i = 0; i < tabs; i++){
+        printf("  ");
+    }
+    return;
+}
+
+void printAST(struct leaf *AST, int tabs){
+    tabulation(tabs);
     switch(AST -> type){
         case 0:
             break;
         case 1:
-            printf("function : %s \n    length : %d\n", AST -> ast_function -> function, AST -> ast_function -> body_length);
+            printf("function : %s \n", AST -> ast_function -> function);
+            tabulation(tabs + 1);
+            printf("length : %d\n", AST -> ast_function -> body_length);
             for (int i = 0; i < (AST -> ast_function ) -> body_length; i++){
-                printf("    argument n°%d : ",i);
-                printAST(AST -> ast_function -> body);
+                tabulation(tabs + 1);
+                printf("argument n°%d : ",i);
+                printAST(AST -> ast_function -> body, 0);
                 AST->ast_function -> body ++;
             }
             break;
@@ -273,16 +285,26 @@ void printAST(struct leaf *AST){
             printf("string : \"%s\"\n", AST -> ast_string -> value);
             break;
         case 5:
-            printf("variable declaration : \n    name : %s \n", AST -> ast_vardeclaration -> name);
+            printf("variable declaration : %s \n", AST -> ast_vardeclaration -> name);
             break;
         case 6:
+            printf("if : \n");
+            tabulation(tabs + 1);
+            printf("condition : \n");
+            printAST(AST -> ast_if -> condition, tabs + 2);
+            tabulation(tabs + 1);
+            printf("body : \n");
+            for (int i = 0; i < AST -> ast_if -> body_length; i++){
+                printAST(AST -> ast_if -> body, tabs + 2);
+                AST -> ast_if -> body ++;
+            }
             break;
         case 7:
             break;
         case 8:
             break;
         case 9:
-            printAST(AST -> ast);
+            printAST(AST -> ast, tabs + 1);
             break;
         case 10:
             printf("identifier : %s\n", AST -> ast_identifier -> name);
@@ -338,9 +360,11 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
         case 1:
             receiver -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
             strcpy(receiver -> ast_function -> function, transmitter -> ast_function -> function);
-            receiver -> ast_function -> body = (struct leaf*) malloc(2 * sizeof(struct leaf));
-            copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, 0, 0);
-            copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, 1, 0);
+            receiver -> ast_function -> body = (struct leaf*) malloc((transmitter -> ast_function -> body_length) * sizeof(struct leaf));
+            receiver -> ast_function -> body_length = transmitter -> ast_function -> body_length;
+            for (int i = 0; i < (transmitter -> ast_function -> body_length); i++){
+                copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, i, i);
+            }
             break;
         case 2:
             receiver -> ast_number = (struct number*) malloc(sizeof(struct number));
@@ -458,8 +482,13 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 argcondition = parsestatement(lex, "terminator");
                 argbody = parsestatement(lexer(fp1, '}'), "terminator");
                 (Ast + aindex) -> type = 6;
-                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+                copy_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0);
+                for (int i = 0; i < argbody.size; i ++){
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, i, i);
+                }
+                (Ast + aindex) -> ast_if -> body_length = argbody.size;
                 aindex ++;
                 while(((tokens + size) -> value)[0] != '{' ){
                     size ++;
@@ -515,7 +544,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
 int main( int argc, char *argv[] ){
     fp1 = fopen (argv[1], "r");
     while(1){
-        printAST(parsestatement(lexer(fp1, '\n'), "terminator").body + 1);
+        printAST(parsestatement(lexer(fp1, '\n'), "terminator").body, 0);
         linum ++;
     }
     fclose(fp1);
