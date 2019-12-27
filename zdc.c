@@ -1,14 +1,17 @@
+// Import the libraries
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 
+// Define an enumeration to list all the possible token types
 enum type {operator,
            separator,
            identifier,
            number,
            keyword,
            string};
+// Define an enumeration to list all the possible instruction types
 enum instruction_type{function,
                       function_call,
                       znumber,
@@ -20,19 +23,23 @@ enum instruction_type{function,
                       returnstatement,
                       AST,
                       zidentifier};
+// Define the structure for a token with a type and a name
 struct token {
     enum type type;
     char value[50];
 };
+// Define the structure for a list of tokens
 struct lexline {
     struct token *tokens;
     int size;
     int base_value;
 };
+// Define the structure for a node of an AST
 struct leaf {
-    enum instruction_type type;
-    union {
+    enum instruction_type type; // Declaration of the type of the node
+    union {                     // Store every possible node in an memory spot
         struct whilestatement       *ast_while;
+        struct ifstatement          *ast_if;
         struct leaf                 *ast;
         struct functioncall         *ast_function;
         struct number               *ast_number;
@@ -41,7 +48,12 @@ struct leaf {
         struct identifier           *ast_identifier;
     };
 };
+// Define the structures for the different AST node types
 struct whilestatement{
+    struct leaf *condition;
+    struct leaf *body;
+};
+struct ifstatement{
     struct leaf *condition;
     struct leaf *body;
 };
@@ -62,12 +74,12 @@ struct variable_declaration {
 struct identifier {
     char name[30];
 };
-char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'};
-char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'};
+char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'}; // List of all symbols
+char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'}; // List of all operators
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
-                  "elif", "var", "swap", "case", "switch", "iter"};
-int linum = 1;
-
+                  "elif", "var", "swap", "case", "switch", "iter"}; // List of keybords
+int linum = 1; // The variable to keep track of the current line
+// A function to check if a string is a keyword
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
         if (strcmp(keywords[i], in) == 0){
@@ -76,18 +88,18 @@ int iskeyword(char in[]){
     }
     return 0;
 }
-
+// A function to check if a char is in a char list
 int isinchars(char in[], char check){
-    for(int i = 0; i < 10; i++){
+    for(int i = 0; i < 11; i++){
         if (in[i] == check){
             return 1;
         }
     }
     return 0;
 }
-
+// A function to check the operator precedence of an input string
 int operatorPrecedence (char operator[]){
-    int precedence = -1;
+    int precedence = -1; // If the input is not an operator or is empty, return -1
     if (((strcmp(operator, "and")) == 0) ||
         ((strcmp(operator,  "or")) == 0) ||
         ((strcmp(operator, "and")) == 0) ||
@@ -113,8 +125,8 @@ int operatorPrecedence (char operator[]){
     {precedence = 5;}
     return precedence;
 }
-
-struct lexline lexer(FILE *fp1){
+// The Lexer
+struct lexline lexer(FILE *fp1, char breaker){
     struct token *tokens;
     struct lexline lex;
     tokens = (struct token*) malloc(20 * sizeof(struct token));
@@ -172,6 +184,12 @@ struct lexline lexer(FILE *fp1){
             else if ((c == '>') && (d == '=')){
                 strcpy((tokens+k)->value, ">=");
             }
+            else if ((c == '/') && (d == '/')){
+                while (c != '\n'){
+                    c = fgetc(fp1);
+                }
+                k --;
+            }
             else{
                 conv[0] = c;
                 strcpy((tokens+k)->value, conv);
@@ -195,6 +213,14 @@ struct lexline lexer(FILE *fp1){
                 (tokens+k)->type = 5;
                 strcpy((tokens+k)->value, buffer);
             }
+            else if (c == '#'){
+                c = fgetc(fp1);
+                while (c != '#'){
+                    c = fgetc(fp1);
+                }
+                k --;
+                c = fgetc(fp1);
+            }
             else{
                 (tokens+k)->type = 1;
                 conv[0] = c;
@@ -202,7 +228,7 @@ struct lexline lexer(FILE *fp1){
             }
             k++;
         }
-        else if (c == '\n'){
+        else if (c == breaker){
             (tokens+k)->type = 1;
             strcpy((tokens+k)->value, "terminator");
             tokens = (struct token*) realloc(tokens, (k + 1) * sizeof(struct token));
@@ -239,7 +265,7 @@ void printAST(struct leaf *AST){
         case 3:
             break;
         case 4:
-            printf("string : %s\n", AST -> ast_string -> value);
+            printf("string : \"%s\"\n", AST -> ast_string -> value);
             break;
         case 5:
             printf("variable declaration : \n    name : %s \n", AST -> ast_vardeclaration -> name);
@@ -463,7 +489,7 @@ struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     while(1){
-        printAST(parsestatement(lexer(fp1), "terminator") + 1);
+        printAST(parsestatement(lexer(fp1, '\n'), "terminator"));
         linum ++;
     }
     fclose(fp1);
