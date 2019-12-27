@@ -74,11 +74,16 @@ struct variable_declaration {
 struct identifier {
     char name[30];
 };
+struct parse {
+    struct leaf *body;
+    int size;
+};
 char symbols[10] = {'(',')','{','}',';','"','[',']',',','#'}; // List of all symbols
 char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'}; // List of all operators
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"}; // List of keybords
 int linum = 1; // The variable to keep track of the current line
+FILE *fp1;
 // A function to check if a string is a keyword
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
@@ -228,7 +233,12 @@ struct lexline lexer(FILE *fp1, char breaker){
             }
             k++;
         }
-        else if (c == breaker){
+        else if (c == '\t'){
+            (tokens + k) -> type = 1;
+            strcpy((tokens+k)->value, "tabulation");
+            k ++;
+        }
+        if (c == breaker){
             (tokens+k)->type = 1;
             strcpy((tokens+k)->value, "terminator");
             tokens = (struct token*) realloc(tokens, (k + 1) * sizeof(struct token));
@@ -237,11 +247,6 @@ struct lexline lexer(FILE *fp1, char breaker){
             lex.tokens=tokens;
             return lex;
             free(tokens);
-        }
-        else if (c == '\t'){
-            (tokens + k) -> type = 1;
-            strcpy((tokens+k)->value, "tabulation");
-            k ++;
         }
     }
     exit(0);
@@ -371,7 +376,7 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
     receiver -= index2;
 }
 
-struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
+struct parse parsestatement(struct lexline lex, char terminator2[20]){
     struct leaf *arg2;
     struct leaf *Ast;
     struct token *tokens = lex.tokens;
@@ -428,10 +433,13 @@ struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
                 lex.base_value = size;
                 (Ast + aindex) -> type = 9;
                 (Ast + aindex) -> ast  = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(parsestatement(lex, "terminator"), (Ast + aindex) -> ast, 0, 0);
+                copy_ast(parsestatement(lex, "terminator").body, (Ast + aindex) -> ast, 0, 0);
                 aindex ++;
             }
             else if (')'){
+                break;
+            }
+            else if ('{'){
                 break;
             }
         }
@@ -442,11 +450,26 @@ struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
                 strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
                 aindex ++;
             }
+            else if (strcmp(token.value, "if") == 0){
+                (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
+                lex.base_value = size + 1;
+                struct parse argcondition;
+                struct parse argbody;
+                argcondition = parsestatement(lex, "terminator");
+                argbody = parsestatement(lexer(fp1, '}'), "terminator");
+                (Ast + aindex) -> type = 6;
+                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+                aindex ++;
+                while(((tokens + size) -> value)[0] != '{' ){
+                    size ++;
+                }
+            }
             else if (strcmp(token.value, "print") == 0){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 lex.base_value = size + 1;
                 arg2 = (struct leaf*) malloc(sizeof(struct leaf));
-                arg2 = parsestatement(lex, "terminator");
+                arg2 = parsestatement(lex, "terminator").body;
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(arg2, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
@@ -480,16 +503,19 @@ struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
         aindex --;
         current_operator --;
     }
-    return(Ast);
+    struct parse output;
+    output.body = Ast;
+    output.size = aindex;
+    return(output);
     free(tokens);
     freeall(Ast);
     free(Ast);
 }
 
 int main( int argc, char *argv[] ){
-    FILE *fp1 = fopen (argv[1], "r");
+    fp1 = fopen (argv[1], "r");
     while(1){
-        printAST(parsestatement(lexer(fp1, '\n'), "terminator"));
+        printAST(parsestatement(lexer(fp1, '\n'), "terminator").body + 1);
         linum ++;
     }
     fclose(fp1);
