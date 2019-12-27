@@ -67,9 +67,6 @@ char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'};
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"};
 int linum = 1;
-int varind = 0;
-struct leaf *arg2;
-struct leaf *Ast;
 
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
@@ -224,6 +221,44 @@ struct lexline lexer(FILE *fp1){
     exit(0);
 }
 
+void printAST(struct leaf *AST){
+    switch(AST -> type){
+        case 0:
+            break;
+        case 1:
+            printf("function : %s \n    length : %d\n", AST -> ast_function -> function, AST -> ast_function -> body_length);
+            for (int i = 0; i < (AST -> ast_function ) -> body_length; i++){
+                printf("    argument n°%d : ",i);
+                printAST(AST -> ast_function -> body);
+                AST->ast_function -> body ++;
+            }
+            break;
+        case 2:
+            printf("number : %i\n", AST -> ast_number-> value);
+            break;
+        case 3:
+            break;
+        case 4:
+            printf("string : %s\n", AST -> ast_string -> value);
+            break;
+        case 5:
+            printf("variable declaration : \n    name : %s \n", AST -> ast_vardeclaration -> name);
+            break;
+        case 6:
+            break;
+        case 7:
+            break;
+        case 8:
+            break;
+        case 9:
+            printAST(AST -> ast);
+            break;
+        case 10:
+            printf("identifier : %s\n", AST -> ast_identifier -> name);
+            break;
+    }
+}
+
 void freeall(struct leaf *AST){
     switch(AST -> type){
         case 0:
@@ -257,7 +292,7 @@ void freeall(struct leaf *AST){
             free(AST -> ast);
             break;
         case 10:
-            free(AST -> ast_vardeclaration);
+            free(AST -> ast_identifier);
             break;
     }
     free(AST);
@@ -305,11 +340,14 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             strcpy(receiver -> ast_identifier -> name, transmitter -> ast_identifier -> name);
             break;
     }
+    receiver -> type = transmitter -> type;
     transmitter -= index1;
     receiver -= index2;
 }
 
 struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
+    struct leaf *arg2;
+    struct leaf *Ast;
     struct token *tokens = lex.tokens;
     struct token operators[5];
     Ast = (struct leaf*) malloc((lex.size - lex.base_value) * sizeof(struct leaf));
@@ -385,7 +423,8 @@ struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
                 arg2 = parsestatement(lex, "terminator");
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(arg2, ((Ast + aindex) -> ast_function -> body), 0, 0);
-                (Ast + aindex) -> type = 5;
+                (Ast + aindex) -> type = 1;
+                (Ast -> ast_function ) -> body_length = 1;
                 strcpy((Ast + aindex) -> ast_function -> function, "print");
                 aindex ++;
                 size ++;
@@ -411,21 +450,22 @@ struct leaf * parsestatement(struct lexline lex, char terminator2[20]){
         strcpy(((Ast + aindex - 2) -> ast_function) -> function, operators[current_operator].value);
         copy_ast(arg2, (Ast + aindex - 2) -> ast_function -> body, 0, 0);
         copy_ast(Ast, (Ast + aindex - 2) -> ast_function -> body, aindex - 1, 1);
+        ((Ast + aindex - 2) -> ast_function ) -> body_length = 2;
         aindex --;
         current_operator --;
     }
     return(Ast);
     free(tokens);
+    freeall(Ast);
     free(Ast);
 }
 
 int main( int argc, char *argv[] ){
     FILE *fp1 = fopen (argv[1], "r");
     while(1){
-        printf("%s", parsestatement(lexer(fp1), "terminator") -> ast_function -> body -> ast_string -> value);
+        printAST(parsestatement(lexer(fp1), "terminator") + 1);
         linum ++;
     }
-    freeall(Ast);
     fclose(fp1);
     return 0;
 }
