@@ -250,7 +250,9 @@ struct lexline lexer(FILE *fp1, char breaker){
             free(tokens);
         }
     }
-    exit(0);
+    lex.size = 0;
+    return lex;
+    free(tokens);
 }
 
 void tabulation(int tabs){
@@ -409,6 +411,14 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
     int aindex = 0;
     int size = lex.base_value;
     int current_operator = 0;
+    if (lex.size == 0){
+        struct parse output;
+        output.size = 0;
+        return(output);
+        free(tokens);
+        freeall(Ast);
+        free(Ast);
+    }
     while(size <= lex.size){
         struct token token;
         token.type = (tokens+size)->type;
@@ -543,10 +553,22 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
 
 int main( int argc, char *argv[] ){
     fp1 = fopen (argv[1], "r");
+    struct parse outfinal;
+    outfinal.size = 0;
+    outfinal.body = (struct leaf*) malloc(4 * sizeof(struct leaf));
     while(1){
-        printAST(parsestatement(lexer(fp1, '\n'), "terminator").body, 0);
+        struct parse out = parsestatement(lexer(fp1, '\n'), "terminator");
+        for(int i = 0; i < out.size; i ++){
+            copy_ast(out.body, outfinal.body, i, outfinal.size);
+            outfinal.size ++;
+            out.body ++;
+        }
         linum ++;
+        if (out.size == 0){
+            break;
+        }
     }
+    exit(0);
     fclose(fp1);
     return 0;
 }
