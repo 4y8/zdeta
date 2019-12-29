@@ -204,6 +204,7 @@ struct lexline lexer(FILE *fp1, char breaker){
                 while (c != '\n'){
                     c = fgetc(fp1);
                 }
+                linum ++;
                 k --;
             }
             else{
@@ -232,12 +233,18 @@ struct lexline lexer(FILE *fp1, char breaker){
             else if (c == '#'){
                 c = fgetc(fp1);
                 while (c != '#'){
+                    if (c == '\n'){
+                        linum ++;
+                    }
                     c = fgetc(fp1);
                 }
                 k --;
                 c = fgetc(fp1);
             }
             else{
+                if(c == '\n'){
+                    linum ++;
+                }
                 (tokens+k)->type = 1;
                 conv[0] = c;
                 strcpy((tokens+k)->value, conv);
@@ -515,7 +522,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     size ++;
                 }
                 aindex ++;
-
             }
             else if (strcmp(token.value, "print") == 0){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -576,7 +582,6 @@ int main( int argc, char *argv[] ){
             outfinal.size ++;
             out.body ++;
         }
-        linum ++;
         if (out.size == -1){
             printAST(out.body, 0);
             break;
