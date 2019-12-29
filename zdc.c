@@ -98,10 +98,7 @@ int linum = 1; // The variable to keep track of the current line
 FILE *fp1;
 struct variable *symbol_table;
 int varind = 0;
-
-void create_var(char name[50]){
-    varind ++;
-}
+int symbol_table_length = 20;
 
 // A function to check if a string is a keyword
 int iskeyword(char in[]){
@@ -600,7 +597,29 @@ void check(struct leaf *Ast){
 
 void execute(struct leaf *Ast){
     if (Ast -> type == 5){
-
+        strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
+        varind ++;
+    }
+    else if (Ast -> type == 1){
+        if (strcmp(Ast -> ast_function -> function, "=") == 0){
+            int j = -1;
+            for (int i = 0; i < symbol_table_length; i++){
+                if (strcmp((symbol_table + i) -> name, Ast -> ast_function -> body -> ast_identifier -> name) == 0){
+                    j = i;
+                }
+            }
+            Ast -> ast_function -> body ++;
+            if (j == -1){
+                puts("Error : using non declarated variable.");
+                exit(1);
+            }
+            else {
+                if (Ast -> ast_function -> body -> type == 2){
+                    (symbol_table + j) -> type = 0;
+                    (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
+                }
+            }
+        }
     }
 }
 
