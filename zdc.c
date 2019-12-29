@@ -23,6 +23,9 @@ enum instruction_type{function,
                       returnstatement,
                       AST,
                       zidentifier};
+enum variable_type{integer,
+                   char_list,
+                   bool};
 // Define the structure for a token with a type and a name
 struct token {
     enum type type;
@@ -79,12 +82,27 @@ struct parse {
     struct leaf *body;
     int size;
 };
+struct variable{
+    char name[20];
+    enum variable_type type;
+    union {
+        char string[50];
+        int integer;
+    };
+};
 char symbols[11] = {'(',')','{','}',';','"','[',']',',','#','\n'}; // List of all symbols
 char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'}; // List of all operators
 char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"}; // List of keybords
 int linum = 1; // The variable to keep track of the current line
 FILE *fp1;
+struct variable *symbol_table;
+int varind = 0;
+
+void create_var(char name[50]){
+    varind ++;
+}
+
 // A function to check if a string is a keyword
 int iskeyword(char in[]){
     for(int i = 0; i < 12; i++){
@@ -570,6 +588,22 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
     free(Ast);
 }
 
+void check(struct leaf *Ast){
+    if (Ast -> type == 1){
+        if (Ast -> ast_function -> function[0] == '='){
+            if (Ast -> ast_function -> body -> type != 10){
+                exit(1);
+            }
+        }
+    }
+}
+
+void execute(struct leaf *Ast){
+    if (Ast -> type == 5){
+
+    }
+}
+
 int main( int argc, char *argv[] ){
     fp1 = fopen (argv[1], "r");
     struct parse outfinal;
@@ -588,7 +622,12 @@ int main( int argc, char *argv[] ){
         }
     }
     for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
+        check(outfinal.body);
+        outfinal.body ++;
+    }
+    outfinal.body -= outfinal.size;
+    for (int i = 0; i < outfinal.size; i++){
+        execute(outfinal.body);
         outfinal.body ++;
     }
     exit(0);
