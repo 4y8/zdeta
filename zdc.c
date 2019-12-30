@@ -587,8 +587,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
 
 void check(struct leaf *Ast){
     if (Ast -> type == 1){
-        if (Ast -> ast_function -> function[0] == '='){
+        if (strcmp(Ast -> ast_function -> function, "=") == 0){
             if (Ast -> ast_function -> body -> type != 10){
+                puts("Error : assigning a value to a non variable element.");
                 exit(1);
             }
         }
@@ -614,9 +615,29 @@ void execute(struct leaf *Ast){
                 exit(1);
             }
             else {
+                if (Ast -> ast_function -> body -> type == 1){
+                    execute(Ast -> ast_function -> body);
+                }
                 if (Ast -> ast_function -> body -> type == 2){
                     (symbol_table + j) -> type = 0;
                     (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
+                }
+                else if (Ast -> ast_function -> body -> type == 4){
+                    (symbol_table + j) -> type = 1;
+                    strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
+                }
+            }
+        }
+        else if (strcmp(Ast -> ast_function -> function, "+") == 0){
+            if (Ast -> ast_function -> body -> type == 2){
+                int i = Ast -> ast_function -> body -> ast_number -> value;
+                Ast -> ast_function -> body ++;
+                if (Ast -> ast_function -> body -> type == 2){
+                    int j = Ast -> ast_function -> body -> ast_number -> value;
+                    Ast -> type = 2;
+                    free(Ast -> ast_function);
+                    Ast -> ast_number = (struct number*) malloc(sizeof(struct number));
+                    Ast -> ast_number -> value = i + j;
                 }
             }
         }
@@ -626,8 +647,9 @@ void execute(struct leaf *Ast){
 int main( int argc, char *argv[] ){
     fp1 = fopen (argv[1], "r");
     struct parse outfinal;
+    symbol_table  = (struct variable*) malloc(20 * sizeof(struct variable));
     outfinal.size = 0;
-    outfinal.body = (struct leaf*) malloc(4 * sizeof(struct leaf));
+    outfinal.body = (struct leaf*) malloc(10 * sizeof(struct leaf));
     while(1){
         struct parse out = parsestatement(lexer(fp1, '\n'), "terminator");
         for(int i = 0; i < out.size; i ++){
@@ -649,6 +671,7 @@ int main( int argc, char *argv[] ){
         execute(outfinal.body);
         outfinal.body ++;
     }
+    printf("%d", symbol_table -> integer);
     exit(0);
     fclose(fp1);
     return 0;
