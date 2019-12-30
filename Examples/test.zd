@@ -1,1 +1,4 @@
-let a = 15
+let a = 15 + 5
+if a < 5 {
+   print "Hello World !"
+}

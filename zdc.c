@@ -162,11 +162,10 @@ struct lexline lexer(FILE *fp1, char breaker){
             (tokens+k)->type = 1;
             strcpy((tokens+k)->value, "terminator");
             tokens = (struct token*) realloc(tokens, (k + 1) * sizeof(struct token));
-            lex.size = (k + 1);
+            lex.size = k + 1;
             lex.base_value = 0;
-            lex.tokens=tokens;
+            lex.tokens = tokens;
             return lex;
-            free(tokens);
         }
         if (isalpha(c)){
             j = ftell(fp1);
@@ -271,7 +270,6 @@ struct lexline lexer(FILE *fp1, char breaker){
             strcpy((tokens+k)->value, "tabulation");
             k ++;
         }
-
     }
     lex.size = -1;
     return lex;
@@ -510,6 +508,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             else if ('{'){
                 break;
             }
+            else if ('\n'){
+                break;
+            }
         }
         else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
@@ -542,13 +543,13 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 lex.base_value = size + 1;
                 arg2 = (struct leaf*) malloc(sizeof(struct leaf));
-                arg2 = parsestatement(lex, "\n").body;
+                arg2 = parsestatement(lex, "terminator").body;
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(arg2, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
                 ((Ast + aindex) -> ast_function ) -> body_length = 1;
                 strcpy((Ast + aindex) -> ast_function -> function, "print");
-                size += 1 + (Ast + aindex) -> ast_function -> body_length;
+                size += (Ast + aindex) -> ast_function -> body_length;
                 aindex ++;
             }
             size ++;
@@ -594,6 +595,7 @@ void check(struct leaf *Ast){
             }
         }
     }
+    return;
 }
 
 void execute(struct leaf *Ast){
@@ -621,10 +623,12 @@ void execute(struct leaf *Ast){
                 if (Ast -> ast_function -> body -> type == 2){
                     (symbol_table + j) -> type = 0;
                     (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
+                    return;
                 }
                 else if (Ast -> ast_function -> body -> type == 4){
                     (symbol_table + j) -> type = 1;
                     strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
+                    return;
                 }
             }
         }
@@ -639,6 +643,14 @@ void execute(struct leaf *Ast){
                     Ast -> ast_number = (struct number*) malloc(sizeof(struct number));
                     Ast -> ast_number -> value = i + j;
                 }
+            }
+        }
+        else if (strcmp(Ast -> ast_function -> function, "print") == 0){
+            if (Ast -> ast_function -> body -> type == 1){
+                execute(Ast -> ast_function -> body);
+            }
+            if (Ast -> ast_function -> body -> type == 4){
+                puts(Ast -> ast_function -> body -> ast_string -> value);
             }
         }
     }
@@ -658,9 +670,12 @@ int main( int argc, char *argv[] ){
             out.body ++;
         }
         if (out.size == -1){
-            printAST(out.body, 0);
             break;
         }
+    }
+    for (int i = 0; i < outfinal.size; i++){
+        printAST(outfinal.body, 0);
+        outfinal.body ++;
     }
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
@@ -671,7 +686,9 @@ int main( int argc, char *argv[] ){
         execute(outfinal.body);
         outfinal.body ++;
     }
-    printf("%d", symbol_table -> integer);
+    outfinal.body -= outfinal.size;
+
+    printf("%s", symbol_table -> name);
     exit(0);
     fclose(fp1);
     return 0;
