@@ -384,7 +384,6 @@ void freeall(struct leaf *AST){
             free(AST -> ast_identifier);
             break;
     }
-    free(AST);
 }
 
 void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2){
@@ -632,10 +631,12 @@ void execute(struct leaf *Ast){
                 if (Ast -> ast_function -> body -> type == 2){
                     int j = Ast -> ast_function -> body -> ast_number -> value;
                     Ast -> type = 2;
+                    char c = (Ast -> ast_function -> function)[0];
                     free(Ast -> ast_function);
                     Ast -> ast_number = (struct number*) malloc(sizeof(struct number));
-                    switch((Ast -> ast_function -> function)[0]){
+                    switch(c){
                         case '+':
+                            puts("aaa");
                             Ast -> ast_number -> value = i + j;
                             break;
                         case '-':
@@ -722,8 +723,13 @@ int main( int argc, char *argv[] ){
         execute(outfinal.body);
         outfinal.body ++;
     }
+    printf("%d", symbol_table -> integer);
     outfinal.body -= outfinal.size;
     fclose(fp1);
+    for (int i = 0; i < outfinal.size; i++){
+        freeall(outfinal.body);
+        outfinal.body ++;
+    }
     exit(0);
     return 0;
 }
