@@ -601,6 +601,7 @@ void check(struct leaf *Ast){
 void execute(struct leaf *Ast){
     if (Ast -> type == 5){
         strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
+        (symbol_table + varind) -> type = -1;
         varind ++;
     }
     else if (Ast -> type == 1){
@@ -622,13 +623,23 @@ void execute(struct leaf *Ast){
                     }
                 }
             if (Ast -> ast_function -> body -> type == 2){
-                (symbol_table + j) -> type = 0;
-                (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
+                if (((symbol_table + j) -> type == 0) || ((symbol_table + j) -> type == -1)){
+                    (symbol_table + j) -> type = 0;
+                    (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
+                }
+                else {
+                    puts("Error : changing the type of a variable");
+                    exit(1);
+                }
                 return;
             }
-            else if (Ast -> ast_function -> body -> type == 4){
-                (symbol_table + j) -> type = 1;
-                strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
+            else if(Ast -> ast_function -> body -> type == 4){
+                if (((symbol_table + j) -> type == 1) || ((symbol_table + j) -> type == -1)){
+                    (symbol_table + j) -> type = 1;
+                    strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
+                }
+                puts("Error : changing the type of a variable");
+                    exit(1);
                 return;
             }
         }
