@@ -610,6 +610,17 @@ void execute(struct leaf *Ast){
             if (Ast -> ast_function -> body -> type == 1){
                 execute(Ast -> ast_function -> body);
             }
+            for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
+                    if (Ast -> ast_function -> body -> type == 10) {
+                        int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                        if ((symbol_table + j) -> type == 0){
+                            free(Ast -> ast_function -> body -> ast_identifier);
+                            Ast -> ast_function -> body -> type = 2;
+                            Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
+                            Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+                        }
+                    }
+                }
             if (Ast -> ast_function -> body -> type == 2){
                 (symbol_table + j) -> type = 0;
                 (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
@@ -636,7 +647,6 @@ void execute(struct leaf *Ast){
                     Ast -> ast_number = (struct number*) malloc(sizeof(struct number));
                     switch(c){
                         case '+':
-                            puts("aaa");
                             Ast -> ast_number -> value = i + j;
                             break;
                         case '-':

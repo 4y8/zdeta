@@ -1,4 +1,5 @@
-let a = 15 + 5
-if a < 100 {
+let a = 150 - 50
+let b = a
+if b == 100 {
    print "Hello World !"
 }
