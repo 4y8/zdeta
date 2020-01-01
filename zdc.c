@@ -751,8 +751,8 @@ void execute(struct leaf *Ast){
                     Ast -> ast_if -> condition -> ast_function -> body ++;
                     char i[100];
                     strcpy(i, Ast -> ast_if -> condition -> ast_function -> body -> ast_string -> value);
-                    if (((i < j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, "<") == 0) ||
-                        ((i > j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, ">") == 0)){
+                    if ((strcmp(Ast -> ast_if -> condition -> ast_function -> function, "<") == 0) ||
+                        (strcmp(Ast -> ast_if -> condition -> ast_function -> function, ">") == 0)){
                         puts("Error : can't say if a string is superior or inferior to another string.");
                     }
                     else if (strcmp(i, j) == 0){
