@@ -141,7 +141,7 @@ int operatorPrecedence (char operator[]){
     else if (strcmp(operator, ".") == 0)
     {precedence = 4;}
     else if (strcmp(operator, "=") == 0)
-    {precedence = 5;}
+    {precedence = -1;}
     return precedence;
 }
 int varindex (char var[]){
@@ -159,7 +159,7 @@ int varindex (char var[]){
 }
 // The Lexer
 struct lexline lexer(FILE *fp1, char breaker){
-    char operators[9] = {'>','<', '=', '?', '+', '/', '-', '%','^'}; // List of all operators
+    char operators[10] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*'}; // List of all operators
     struct token *tokens;
     struct lexline lex;
     tokens = (struct token*) malloc(20 * sizeof(struct token));
@@ -300,14 +300,13 @@ void printAST(struct leaf *AST, int tabs){
             break;
         case 1:
             printf("function : %s \n", AST -> ast_function -> function);
-            tabulation(tabs + 1);
-            printf("length : %d\n", AST -> ast_function -> body_length);
             for (int i = 0; i < (AST -> ast_function ) -> body_length; i++){
                 tabulation(tabs + 1);
-                printf("argument n°%d : ",i);
-                printAST(AST -> ast_function -> body, 0);
+                printf("argument n°%d : \n",i);
+                printAST(AST -> ast_function -> body, tabs + 2);
                 AST->ast_function -> body ++;
             }
+            AST->ast_function -> body -= (AST -> ast_function ) -> body_length;
             break;
         case 2:
             printf("number : %i\n", AST -> ast_number-> value);
@@ -478,15 +477,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             size ++;
         }
         else if (token.type == 0){
-            while (current_operator >= 0){
-                struct token operator = operators[current_operator];
-                if (operatorPrecedence(token.value) <= operatorPrecedence(operator.value)){
+            while (current_operator > 0){
+                if (operatorPrecedence(token.value) <= operatorPrecedence(operators[current_operator - 1].value)){
+                    arg2 = (struct leaf*) malloc(sizeof(struct leaf));
+                    copy_ast(Ast, arg2, aindex - 2, 0);
                     (Ast + aindex - 2) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
-                    (Ast + aindex - 2) -> ast_function -> body  = (struct leaf*) malloc(2 * sizeof(struct leaf));
+                    (Ast + aindex - 2) -> ast_function -> body = (struct leaf*) malloc(2 * sizeof(struct leaf));
                     (Ast + aindex - 2) -> type = 1;
-                    strcpy(((Ast + aindex - 2) -> ast_function) -> function, operator.value);
-                    (Ast + aindex - 2) -> ast_function -> body = Ast + aindex - 1;
-                    (((Ast + aindex - 2) -> ast_function) -> body + 1) -> type = arg2 -> type;
+                    strcpy(((Ast + aindex - 2) -> ast_function) -> function, operators[current_operator - 1].value);
+                    copy_ast(arg2, (Ast + aindex - 2) -> ast_function -> body, 0, 0);
+                    copy_ast(Ast, (Ast + aindex - 2) -> ast_function -> body, aindex - 1, 1);
+                    ((Ast + aindex - 2) -> ast_function ) -> body_length = 2;
                     aindex --;
                     current_operator --;
                 }
@@ -494,7 +495,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     break;
                 }
             }
-            operators[current_operator] = token;
+            strcpy(operators[current_operator].value, token.value);
             current_operator ++;
             size ++;
         }
@@ -611,17 +612,20 @@ void execute(struct leaf *Ast){
             if (Ast -> ast_function -> body -> type == 1){
                 execute(Ast -> ast_function -> body);
             }
+            Ast -> ast_function -> body --;
             for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
-                    if (Ast -> ast_function -> body -> type == 10) {
-                        int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
-                        if ((symbol_table + j) -> type == 0){
-                            free(Ast -> ast_function -> body -> ast_identifier);
-                            Ast -> ast_function -> body -> type = 2;
-                            Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
-                            Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
-                        }
+                if (Ast -> ast_function -> body -> type == 10) {
+                    int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                    if ((symbol_table + j) -> type == 0){
+                        free(Ast -> ast_function -> body -> ast_identifier);
+                        Ast -> ast_function -> body -> type = 2;
+                        Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
+                        Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
                     }
                 }
+                Ast -> ast_function -> body ++;
+            }
+            Ast -> ast_function -> body -= Ast -> ast_function -> body_length - 1;
             if (Ast -> ast_function -> body -> type == 2){
                 if (((symbol_table + j) -> type == 0) || ((symbol_table + j) -> type == -1)){
                     (symbol_table + j) -> type = 0;
@@ -647,6 +651,22 @@ void execute(struct leaf *Ast){
                  (strcmp(Ast -> ast_function -> function, "-") == 0) ||
                  (strcmp(Ast -> ast_function -> function, "*") == 0) ||
                  (strcmp(Ast -> ast_function -> function, "/") == 0)){
+            for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
+                if (Ast -> ast_function -> body -> type == 10) {
+                    int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                    if ((symbol_table + j) -> type == 0){
+                        free(Ast -> ast_function -> body -> ast_identifier);
+                        Ast -> ast_function -> body -> type = 2;
+                        Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
+                        Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+                    }
+                }
+                else if (Ast -> ast_function -> body -> type == 1) {
+                    execute(Ast -> ast_function -> body);
+                }
+                Ast -> ast_function -> body ++;
+            }
+            Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
             if (Ast -> ast_function -> body -> type == 2){
                 int i = Ast -> ast_function -> body -> ast_number -> value;
                 Ast -> ast_function -> body ++;
@@ -744,6 +764,7 @@ int main( int argc, char *argv[] ){
             break;
         }
     }
+    fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
@@ -754,7 +775,6 @@ int main( int argc, char *argv[] ){
         outfinal.body ++;
     }
     outfinal.body -= outfinal.size;
-    fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
         freeall(outfinal.body);
         outfinal.body ++;
