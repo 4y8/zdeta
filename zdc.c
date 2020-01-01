@@ -201,7 +201,7 @@ struct lexline lexer(FILE *fp1, char breaker){
         else if (isdigit(c)){
             j = ftell(fp1);
             i = 0;
-            while ((c != ' ') && (c != '\n')){
+            while ((c != ' ') && (c != '\n') && (!isinchars(symbols, c)) && (!isinchars(operators, c))){
                 i++;
                 c = fgetc(fp1);
             }
@@ -459,7 +459,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
         struct token token;
         token.type = (tokens+size)->type;
         strcpy(token.value, (tokens+size)->value);
-        if (strcmp(token.value, terminator2) == 0){
+        if ((strcmp(token.value, terminator2) == 0)){
             break;
         }
         else if (token.type == 3){
@@ -503,9 +503,11 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             if(token.value[0] == '('){
                 size ++;
                 lex.base_value = size;
-                (Ast + aindex) -> type = 9;
-                (Ast + aindex) -> ast  = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(parsestatement(lex, "terminator").body, (Ast + aindex) -> ast, 0, 0);
+                copy_ast(parsestatement(lex, ")").body, (Ast + aindex), 0, 0);
+                while(strcmp((tokens + size) -> value, ")")){
+                    size ++;
+                }
+                size ++;
                 aindex ++;
             }
             else if (token.value[0] == ')'){
