@@ -680,6 +680,15 @@ void execute(struct leaf *Ast){
             if (Ast -> ast_function -> body -> type == 4){
                 puts(Ast -> ast_function -> body -> ast_string -> value);
             }
+            else if (Ast -> ast_function -> body -> type == 10){
+                int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                if ((symbol_table + j) -> type == 0) {
+                    printf("%d", (symbol_table + j) -> integer);
+                }
+                else if ((symbol_table + j) -> type == 1){
+                    puts((symbol_table + j) -> string);
+                }
+            }
         }
     }
     else if (Ast -> type == 6){
@@ -744,7 +753,6 @@ int main( int argc, char *argv[] ){
         execute(outfinal.body);
         outfinal.body ++;
     }
-    printf("%d", symbol_table -> integer);
     outfinal.body -= outfinal.size;
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
