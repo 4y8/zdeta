@@ -729,17 +729,42 @@ void execute(struct leaf *Ast){
                         }
                     }
                 }
+                int t1 = Ast -> ast_if -> condition -> ast_function -> body -> type;
                 Ast -> ast_if -> condition -> ast_function -> body ++;
-                int j = Ast -> ast_if -> condition -> ast_function -> body -> ast_number -> value;
-                Ast -> ast_if -> condition -> ast_function -> body --;
-                int i = Ast -> ast_if -> condition -> ast_function -> body -> ast_number -> value;
-                if (((i < j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, "<") == 0) ||
-                    ((i > j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, ">") == 0) ||
-                    ((i == j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, "==") == 0)){
-                    for (int l = 0; l < Ast -> ast_if -> body_length; l ++){
-                        execute(Ast -> ast_if -> body);
-                        Ast -> ast_if -> body ++;
+                int t2 = Ast -> ast_if -> condition -> ast_function -> body -> type;
+                if ((t1 == t2) && (t1== 2)){
+                    int j = Ast -> ast_if -> condition -> ast_function -> body -> ast_number -> value;
+                    Ast -> ast_if -> condition -> ast_function -> body --;
+                    int i = Ast -> ast_if -> condition -> ast_function -> body -> ast_number -> value;
+                    if (((i < j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, "<") == 0) ||
+                        ((i > j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, ">") == 0) ||
+                        ((i == j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, "==") == 0)){
+                        for (int l = 0; l < Ast -> ast_if -> body_length; l ++){
+                            execute(Ast -> ast_if -> body);
+                            Ast -> ast_if -> body ++;
+                        }
                     }
+                }
+                else if ((t1 == t2) && (t1 == 4)) {
+                    char j[100];
+                    strcpy(j, Ast -> ast_if -> condition -> ast_function -> body -> ast_string -> value);
+                    Ast -> ast_if -> condition -> ast_function -> body ++;
+                    char i[100];
+                    strcpy(i, Ast -> ast_if -> condition -> ast_function -> body -> ast_string -> value);
+                    if (((i < j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, "<") == 0) ||
+                        ((i > j) && strcmp(Ast -> ast_if -> condition -> ast_function -> function, ">") == 0)){
+                        puts("Error : can't say if a string is superior or inferior to another string.");
+                    }
+                    else if (strcmp(i, j) == 0){
+                        for (int l = 0; l < Ast -> ast_if -> body_length; l ++){
+                            execute(Ast -> ast_if -> body);
+                            Ast -> ast_if -> body ++;
+                        }
+                    }
+                }
+                else {
+                    puts("Error : comparing values of different types.");
+                    exit(0);
                 }
             }
         }
