@@ -430,6 +430,14 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             copy_ast(transmitter -> ast_if -> condition, receiver -> ast_if -> condition, 0, 0);
             break;
         case 7:
+            receiver -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
+            receiver -> ast_while -> body_length = transmitter -> ast_while -> body_length;
+            receiver -> ast_while -> body = (struct leaf*) malloc((transmitter -> ast_while -> body_length) * sizeof(struct leaf));
+            for (int i = 0; i < (transmitter -> ast_while -> body_length); i++){
+                copy_ast(transmitter -> ast_while -> body, receiver -> ast_while -> body, i, i);
+            }
+            receiver -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(transmitter -> ast_while -> condition, receiver -> ast_while -> condition, 0, 0);
             break;
         case 8:
             break;
@@ -515,13 +523,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 size ++;
                 aindex ++;
             }
-            else if (token.value[0] == ')'){
-                break;
-            }
-            else if (token.value[0] == '{'){
-                break;
-            }
-            else if (token.value[0] == '\n'){
+            else if ((token.value[0] == '\n') || (token.value[0] == '{') || (token.value[0] == ')')){
                 break;
             }
         }
@@ -559,14 +561,14 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 struct parse argbody;
                 argcondition = parsestatement(lex, "terminator");
                 argbody = parsestatement(lexer(fp1, '}'), "terminator");
-                (Ast + aindex) -> type = 6;
+                (Ast + aindex) -> type = 7;
                 (Ast + aindex) -> ast_while -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_while -> condition, 0, 0);
                 for (int i = 0; i < argbody.size; i ++){
                     copy_ast(argbody.body, (Ast + aindex) -> ast_while -> body, i, i);
                 }
-                (Ast + aindex) -> ast_if -> body_length = argbody.size;
+                (Ast + aindex) -> ast_while -> body_length = argbody.size;
                 while(((tokens + size) -> value)[0] != '{' ){
                     size ++;
                 }
@@ -805,15 +807,48 @@ void execute(struct leaf *Ast){
     }
     else if (Ast -> type == 6){
         if (Ast -> ast_if -> condition -> type == 1){
-            if (Ast -> ast_if -> condition -> type == 1){
-                execute(Ast -> ast_if -> condition);
+            execute(Ast -> ast_if -> condition);
+        }
+        if (Ast -> ast_if -> condition -> type == 3){
+            if (Ast -> ast_if -> condition -> ast_bool -> value == 1){
+                for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
+                    execute(Ast -> ast_if -> body);
+                    Ast -> ast_if -> body ++;
+                }
             }
-            if (Ast -> ast_if -> condition -> type == 3){
-                if (Ast -> ast_if -> condition -> ast_bool -> value == 1){
-                    for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
-                        execute(Ast -> ast_if -> body);
-                        Ast -> ast_if -> body ++;
+        }
+    }
+    else if (Ast -> type == 7){
+        struct leaf *Ast1;
+        Ast1 = (struct leaf*) malloc(sizeof(struct leaf));
+        copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
+        if (Ast -> ast_while -> condition -> type == 1){
+            execute(Ast1);
+        }
+        if (Ast1 -> type == 3){
+            while (1) {
+                puts("s");
+                free(Ast1 -> ast_bool);
+                copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
+                if (Ast1 -> type == 1){
+                    execute(Ast1);
+                }
+                puts("qqq");
+                if (Ast1 -> ast_bool -> value == 1){
+                    puts("ssssssssss");
+                    for (int u = 0; u < Ast -> ast_while -> body_length; u ++){
+                        struct leaf *Ast2;
+                        Ast2 = (struct leaf*) malloc(sizeof(struct leaf));
+                        copy_ast(Ast -> ast_while -> body, Ast2, 0, 0);
+                        puts("aaa");
+                        execute(Ast2);
+                        Ast -> ast_while -> body ++;
                     }
+                    Ast -> ast_while -> body -= Ast -> ast_while -> body_length;
+                    printf("%d", (symbol_table) -> integer);
+                }
+                else {
+                    break;
                 }
             }
         }
