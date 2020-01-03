@@ -827,25 +827,20 @@ void execute(struct leaf *Ast){
         }
         if (Ast1 -> type == 3){
             while (1) {
-                puts("s");
                 free(Ast1 -> ast_bool);
                 copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
                 if (Ast1 -> type == 1){
                     execute(Ast1);
                 }
-                puts("qqq");
                 if (Ast1 -> ast_bool -> value == 1){
-                    puts("ssssssssss");
                     for (int u = 0; u < Ast -> ast_while -> body_length; u ++){
                         struct leaf *Ast2;
                         Ast2 = (struct leaf*) malloc(sizeof(struct leaf));
                         copy_ast(Ast -> ast_while -> body, Ast2, 0, 0);
-                        puts("aaa");
                         execute(Ast2);
                         Ast -> ast_while -> body ++;
                     }
                     Ast -> ast_while -> body -= Ast -> ast_while -> body_length;
-                    printf("%d", (symbol_table) -> integer);
                 }
                 else {
                     break;
