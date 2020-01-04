@@ -66,13 +66,13 @@ struct ifstatement{
     struct leaf *body;
 };
 struct elsestatement{
-    struct bool *truth;
+    int          truth;
     int          body_length;
     struct leaf *body;
 };
 struct functioncall{
-    int body_length;
-    char function[15];
+    int          body_length;
+    char         function[15];
     struct leaf *body;
 };
 struct number{
@@ -95,11 +95,11 @@ struct parse {
     int size;
 };
 struct variable{
-    char name[20];
+    char               name[20];
     enum variable_type type;
     union {
         char string[50];
-        int integer;
+        int  integer;
     };
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
@@ -730,6 +730,7 @@ void check(struct leaf *Ast){
     else if (Ast -> type == 11) {
         if ((Ast - 1) -> type != 6){
             puts("Error : using an else without an if.");
+            exit(1);
         }
     }
     return;
@@ -918,9 +919,18 @@ void execute(struct leaf *Ast){
         }
         if (Ast -> ast_if -> condition -> type == 3){
             if (Ast -> ast_if -> condition -> ast_bool -> value == 1){
+                if ((Ast + 1) -> type == 11) {
+                    (Ast + 1) -> ast_else -> truth = 0;
+                }
                 for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
                     execute(Ast -> ast_if -> body);
                     Ast -> ast_if -> body ++;
+                }
+                Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+            }
+            else {
+                if ((Ast + 1) -> type == 11) {
+                    (Ast + 1) -> ast_else -> truth = 1;
                 }
             }
         }
