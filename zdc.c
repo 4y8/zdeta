@@ -326,6 +326,13 @@ void printAST(struct leaf *AST, int tabs){
             printf("number : %i\n", AST -> ast_number-> value);
             break;
         case 3:
+            printf("bool : ");
+            if (AST -> ast_bool -> value == 0){
+                printf("False\n");
+            }
+            else {
+                printf("True\n");
+            }
             break;
         case 4:
             printf("string : \"%s\"\n", AST -> ast_string -> value);
@@ -392,6 +399,7 @@ void freeall(struct leaf *AST){
             free(AST -> ast_number);
             break;
         case 3:
+            free(AST -> ast_bool);
             break;
         case 4:
             free(AST -> ast_string);
@@ -454,6 +462,8 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             receiver -> ast_number -> value = transmitter -> ast_number -> value;
             break;
         case 3:
+            receiver -> ast_bool = (struct bool*) malloc(sizeof(struct bool));
+            receiver -> ast_bool -> value = transmitter -> ast_bool -> value;
             break;
         case 4:
             receiver -> ast_string = (struct string*) malloc(sizeof(struct string));
@@ -492,6 +502,14 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
         case 10:
             receiver -> ast_identifier = (struct identifier*) malloc(sizeof(struct identifier));
             strcpy(receiver -> ast_identifier -> name, transmitter -> ast_identifier -> name);
+            break;
+        case 11:
+            receiver -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
+            receiver -> ast_else -> body_length = transmitter -> ast_else -> body_length;
+            receiver -> ast_else -> body = (struct leaf*) malloc((transmitter -> ast_else -> body_length) * sizeof(struct leaf));
+            for (int i = 0; i < (transmitter -> ast_else -> body_length); i++){
+                copy_ast(transmitter -> ast_else -> body, receiver -> ast_else -> body, i, i);
+            }
             break;
     }
     receiver -> type = transmitter -> type;
@@ -633,22 +651,20 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 aindex ++;
             }
             else if (strcmp(token.value, "else") == 0){
-                (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
+                (Ast + aindex) -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
                 lex.base_value = size + 1;
                 struct parse argbody;
                 argbody = parsestatement(lexer(fp1, '}'), "}");
-                (Ast + aindex) -> type = 6;
-                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
-                (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-                (Ast + aindex) -> ast_if -> condition -> ast_bool = (struct bool*) malloc(sizeof(struct bool));
+                (Ast + aindex) -> type = 11;
+                (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 for (int i = 0; i < argbody.size; i ++){
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, 0, 0);
-                    (Ast + aindex) -> ast_if -> body ++;
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_else -> body, 0, 0);
+                    (Ast + aindex) -> ast_else -> body ++;
                     argbody.body ++;
                 }
-                (Ast + aindex) -> ast_if -> body_length = argbody.size;
+                (Ast + aindex) -> ast_else -> body_length = argbody.size;
                 argbody.body -= argbody.size;
-                (Ast + aindex) -> ast_if -> body -= argbody.size;
+                (Ast + aindex) -> ast_else -> body -= argbody.size;
                 while(((tokens + size) -> value)[0] != '{' ){
                     size ++;
                 }
@@ -709,6 +725,11 @@ void check(struct leaf *Ast){
                 puts("Error : assigning a value to a non variable element.");
                 exit(1);
             }
+        }
+    }
+    else if (Ast -> type == 11) {
+        if ((Ast - 1) -> type != 6){
+            puts("Error : using an else without an if.");
         }
     }
     return;
