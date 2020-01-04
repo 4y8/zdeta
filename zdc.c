@@ -22,7 +22,8 @@ enum instruction_type{function,
                       whilestatement,
                       returnstatement,
                       AST,
-                      zidentifier};
+                      zidentifier,
+                      elsestatement};
 enum variable_type{integer,
                    char_list,
                    bool};
@@ -50,6 +51,7 @@ struct leaf {
         struct variable_declaration *ast_vardeclaration;
         struct identifier           *ast_identifier;
         struct bool                 *ast_bool;
+        struct elsestatement        *ast_else;
     };
 };
 // Define the structures for the different AST node types
@@ -61,6 +63,11 @@ struct whilestatement{
 struct ifstatement{
     int          body_length;
     struct leaf *condition;
+    struct leaf *body;
+};
+struct elsestatement{
+    struct bool *truth;
+    int          body_length;
     struct leaf *body;
 };
 struct functioncall{
@@ -358,6 +365,15 @@ void printAST(struct leaf *AST, int tabs){
         case 10:
             printf("identifier : %s\n", AST -> ast_identifier -> name);
             break;
+        case 11:
+            printf("else : \n");
+            tabulation(tabs + 1);
+            printf("body : \n");
+            for (int i = 0; i < AST -> ast_else -> body_length; i++){
+                printAST(AST -> ast_else -> body, tabs + 2);
+                AST -> ast_else -> body ++;
+            }
+            break;
     }
 }
 
@@ -366,7 +382,7 @@ void freeall(struct leaf *AST){
         case 0:
             break;
         case 1:
-            for (int i = 0; i < (AST -> ast_function ) -> body_length; i++){
+            for (int i = 0; i < AST -> ast_function -> body_length; i++){
                 freeall(AST -> ast_function -> body);
                 AST->ast_function -> body ++;
             }
@@ -384,11 +400,20 @@ void freeall(struct leaf *AST){
             free(AST -> ast_vardeclaration);
             break;
         case 6:
+            for (int i = 0; i < AST -> ast_if -> body_length; i++){
+                freeall(AST -> ast_if -> body);
+                AST -> ast_if -> body ++;
+            }
             freeall(AST -> ast_if -> condition);
-            freeall(AST -> ast_if -> body);
             free(AST -> ast_if);
             break;
         case 7:
+            for (int i = 0; i < AST -> ast_while -> body_length; i++){
+                freeall(AST -> ast_while -> body);
+                AST -> ast_while -> body ++;
+            }
+            freeall(AST -> ast_while -> condition);
+            free(AST -> ast_while);
             break;
         case 8:
             break;
@@ -398,6 +423,13 @@ void freeall(struct leaf *AST){
             break;
         case 10:
             free(AST -> ast_identifier);
+            break;
+        case 11:
+            for (int i = 0; i < AST -> ast_else -> body_length; i++){
+                freeall(AST -> ast_else -> body);
+                AST -> ast_else -> body ++;
+            }
+            free(AST -> ast_else);
             break;
     }
 }
@@ -555,19 +587,24 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 lex.base_value = size + 1;
                 struct parse argcondition;
                 struct parse argbody;
-                argcondition = parsestatement(lex, "\n");
+                argcondition = parsestatement(lex, "{");
                 argbody = parsestatement(lexer(fp1, '}'), "}");
                 (Ast + aindex) -> type = 6;
                 (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0);
                 for (int i = 0; i < argbody.size; i ++){
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, i, i);
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, 0, 0);
+                    (Ast + aindex) -> ast_if -> body ++;
+                    argbody.body ++;
                 }
                 (Ast + aindex) -> ast_if -> body_length = argbody.size;
+                argbody.body -= argbody.size;
+                (Ast + aindex) -> ast_if -> body -= argbody.size;
                 while(((tokens + size) -> value)[0] != '{' ){
                     size ++;
                 }
+                size ++;
                 aindex ++;
             }
             else if (strcmp(token.value, "while") == 0){
@@ -586,10 +623,32 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     (Ast + aindex) -> ast_while -> body ++;
                     argbody.body ++;
                 }
-
                 (Ast + aindex) -> ast_while -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_while -> body -= argbody.size;
+                while(((tokens + size) -> value)[0] != '{' ){
+                    size ++;
+                }
+                size ++;
+                aindex ++;
+            }
+            else if (strcmp(token.value, "else") == 0){
+                (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
+                lex.base_value = size + 1;
+                struct parse argbody;
+                argbody = parsestatement(lexer(fp1, '}'), "}");
+                (Ast + aindex) -> type = 6;
+                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+                (Ast + aindex) -> ast_if -> condition -> ast_bool = (struct bool*) malloc(sizeof(struct bool));
+                for (int i = 0; i < argbody.size; i ++){
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, 0, 0);
+                    (Ast + aindex) -> ast_if -> body ++;
+                    argbody.body ++;
+                }
+                (Ast + aindex) -> ast_if -> body_length = argbody.size;
+                argbody.body -= argbody.size;
+                (Ast + aindex) -> ast_if -> body -= argbody.size;
                 while(((tokens + size) -> value)[0] != '{' ){
                     size ++;
                 }
@@ -898,11 +957,6 @@ int main( int argc, char *argv[] ){
         }
     }
     fclose(fp1);
-    /*for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;*/
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
