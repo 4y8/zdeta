@@ -965,6 +965,15 @@ void execute(struct leaf *Ast){
             }
         }
     }
+    else if (Ast -> type == 11){
+        if (Ast -> ast_else -> truth == 1) {
+            for (int u = 0; u < Ast -> ast_else -> body_length; u ++){
+                execute(Ast -> ast_else -> body);
+                Ast -> ast_else -> body ++;
+            }
+            Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
+        }
+    }
 }
 
 int main( int argc, char *argv[] ){
