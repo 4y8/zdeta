@@ -23,7 +23,8 @@ enum instruction_type{function,
                       returnstatement,
                       AST,
                       zidentifier,
-                      elsestatement};
+                      elsestatement,
+                      elifstatement};
 enum variable_type{integer,
                    char_list,
                    bool};
@@ -52,6 +53,7 @@ struct leaf {
         struct identifier           *ast_identifier;
         struct bool                 *ast_bool;
         struct elsestatement        *ast_else;
+        struct elifstatement        *ast_elif;
     };
 };
 // Define the structures for the different AST node types
@@ -61,6 +63,12 @@ struct whilestatement{
     struct leaf *body;
 };
 struct ifstatement{
+    int          body_length;
+    struct leaf *condition;
+    struct leaf *body;
+};
+struct elifstatement{
+    int          truth;
     int          body_length;
     struct leaf *condition;
     struct leaf *body;
@@ -351,6 +359,7 @@ void printAST(struct leaf *AST, int tabs){
                 printAST(AST -> ast_if -> body, tabs + 2);
                 AST -> ast_if -> body ++;
             }
+            AST -> ast_if -> body -= AST -> ast_if -> body_length;
             break;
         case 7:
             printf("while : \n");
@@ -363,6 +372,7 @@ void printAST(struct leaf *AST, int tabs){
                 printAST(AST -> ast_while -> body, tabs + 2);
                 AST -> ast_while -> body ++;
             }
+            AST -> ast_while -> body -= AST -> ast_while -> body_length;
             break;
         case 8:
             break;
@@ -380,7 +390,19 @@ void printAST(struct leaf *AST, int tabs){
                 printAST(AST -> ast_else -> body, tabs + 2);
                 AST -> ast_else -> body ++;
             }
+            AST -> ast_else -> body -= AST -> ast_else -> body_length;
             break;
+        case 12:
+            printf("elif : \n");
+            tabulation(tabs + 1);
+            printf("condition : \n");
+            printAST(AST -> ast_elif -> condition, tabs + 2);
+            tabulation(tabs + 1);
+            for (int i = 0; i < AST -> ast_elif -> body_length; i++){
+                printAST(AST -> ast_elif -> body, tabs + 2);
+                AST -> ast_else -> body ++;
+            }
+            AST -> ast_elif -> body -= AST -> ast_elif -> body_length;
     }
 }
 
@@ -439,6 +461,13 @@ void freeall(struct leaf *AST){
             }
             free(AST -> ast_else);
             break;
+        case 12:
+            for (int i = 0; i < AST -> ast_elif -> body_length; i++){
+                freeall(AST -> ast_elif -> body);
+                AST -> ast_elif -> body ++;
+            }
+            freeall(AST -> ast_elif -> condition);
+            free(AST -> ast_elif);
     }
 }
 
@@ -507,10 +536,21 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             receiver -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
             receiver -> ast_else -> body_length = transmitter -> ast_else -> body_length;
             receiver -> ast_else -> body = (struct leaf*) malloc((transmitter -> ast_else -> body_length) * sizeof(struct leaf));
+            receiver -> ast_else -> truth = transmitter -> ast_else -> truth;
             for (int i = 0; i < (transmitter -> ast_else -> body_length); i++){
                 copy_ast(transmitter -> ast_else -> body, receiver -> ast_else -> body, i, i);
             }
             break;
+        case 12:
+            receiver -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
+            receiver -> ast_elif -> body_length = transmitter -> ast_elif -> body_length;
+            receiver -> ast_elif -> body = (struct leaf*) malloc((transmitter -> ast_elif -> body_length) * sizeof(struct leaf));
+            receiver -> ast_elif -> truth = transmitter -> ast_elif -> truth;
+            for (int i = 0; i < (transmitter -> ast_elif -> body_length); i++){
+                copy_ast(transmitter -> ast_elif -> body, receiver -> ast_elif -> body, i, i);
+            }
+            receiver -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(transmitter -> ast_elif -> condition, receiver -> ast_while -> condition, 0, 0);
     }
     receiver -> type = transmitter -> type;
 }
@@ -657,6 +697,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 argbody = parsestatement(lexer(fp1, '}'), "}");
                 (Ast + aindex) -> type = 11;
                 (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                (Ast + aindex) -> ast_else -> truth = 1;
                 for (int i = 0; i < argbody.size; i ++){
                     copy_ast(argbody.body, (Ast + aindex) -> ast_else -> body, 0, 0);
                     (Ast + aindex) -> ast_else -> body ++;
@@ -665,6 +706,30 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 (Ast + aindex) -> ast_else -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_else -> body -= argbody.size;
+                while(((tokens + size) -> value)[0] != '{' ){
+                    size ++;
+                }
+                size ++;
+                aindex ++;
+            }
+            else if (strcmp(token.value, "elif") == 0){
+                (Ast + aindex) -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
+                lex.base_value = size + 1;
+                struct parse argbody = parsestatement(lexer(fp1, '}'), "}");
+                struct parse argcondition = parsestatement(lex, "{");
+                (Ast + aindex) -> type = 12;
+                (Ast + aindex) -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+                copy_ast(argcondition.body, (Ast + aindex) -> ast_elif -> condition, 0, 0);
+                (Ast + aindex) -> ast_elif -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                (Ast + aindex) -> ast_elif -> truth = 1;
+                for (int i = 0; i < argbody.size; i ++){
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_elif -> body, 0, 0);
+                    (Ast + aindex) -> ast_elif -> body ++;
+                    argbody.body ++;
+                }
+                (Ast + aindex) -> ast_elif -> body_length = argbody.size;
+                argbody.body -= argbody.size;
+                (Ast + aindex) -> ast_elif -> body -= argbody.size;
                 while(((tokens + size) -> value)[0] != '{' ){
                     size ++;
                 }
