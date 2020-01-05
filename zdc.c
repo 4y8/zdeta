@@ -987,6 +987,9 @@ void execute(struct leaf *Ast){
                 if ((Ast + 1) -> type == 11) {
                     (Ast + 1) -> ast_else -> truth = 0;
                 }
+                else if ((Ast + 1) -> type == 12) {
+                    (Ast + 1) -> ast_elif -> truth = 0;
+                }
                 for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
                     execute(Ast -> ast_if -> body);
                     Ast -> ast_if -> body ++;
@@ -996,6 +999,9 @@ void execute(struct leaf *Ast){
             else {
                 if ((Ast + 1) -> type == 11) {
                     (Ast + 1) -> ast_else -> truth = 1;
+                }
+                else if ((Ast + 1) -> type == 12) {
+                    (Ast + 1) -> ast_elif -> truth = 1;
                 }
             }
         }
@@ -1037,6 +1043,41 @@ void execute(struct leaf *Ast){
                 Ast -> ast_else -> body ++;
             }
             Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
+        }
+    }
+    else if (Ast -> type == 12){
+        if (Ast -> ast_elif -> truth == 1){
+            if (Ast -> ast_elif -> condition -> type == 1){
+                execute(Ast -> ast_elif -> condition);
+            }
+            if (Ast -> ast_elif -> condition -> type == 3){
+                if (Ast -> ast_elif -> condition -> ast_bool -> value == 1){
+                    if ((Ast + 1) -> type == 11) {
+                        (Ast + 1) -> ast_else -> truth = 0;
+                    }
+                    for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
+                        execute(Ast -> ast_if -> body);
+                        Ast -> ast_if -> body ++;
+                    }
+                    Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+                }
+                else {
+                    if ((Ast + 1) -> type == 11) {
+                        (Ast + 1) -> ast_else -> truth = 1;
+                    }
+                    else if ((Ast + 1) -> type == 12) {
+                        (Ast + 1) -> ast_elif -> truth = 1;
+                    }
+                }
+            }
+        }
+        else {
+            if ((Ast + 1) -> type == 11) {
+                (Ast + 1) -> ast_else -> truth = 0;
+            }
+            else if ((Ast + 1) -> type == 12) {
+                (Ast + 1) -> ast_elif -> truth = 0;
+            }
         }
     }
 }
