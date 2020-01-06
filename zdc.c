@@ -46,6 +46,7 @@ struct leaf {
         struct whilestatement       *ast_while;
         struct ifstatement          *ast_if;
         struct leaf                 *ast;
+        struct function             *ast_functiondeclaration;
         struct functioncall         *ast_function;
         struct number               *ast_number;
         struct string               *ast_string;
@@ -57,6 +58,12 @@ struct leaf {
     };
 };
 // Define the structures for the different AST node types
+struct function{
+    int          body_length;
+    int          argnumber;
+    char        *condition[6];
+    struct leaf *body;
+};
 struct whilestatement{
     int          body_length;
     struct leaf *condition;
@@ -635,9 +642,26 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
         }
         else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
-                (Ast + aindex) -> type = 5;
-                (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration*) malloc(sizeof(struct variable_declaration));
-                strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
+                if (((tokens + size + 2) -> value) [0] == '('){
+                    (Ast + aindex) -> type = 0;
+                    (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
+                    size += 3;
+                    char args[5][10];
+                    int argnumber = 0;
+                    while ((tokens + size) -> type == 1){
+                        strcpy(args[argnumber], (tokens + size) -> value);
+                        argnumber ++;
+                        size ++;
+                    }
+                    puts("aa");
+                    (Ast + aindex) -> ast_functiondeclaration -> argnumber = argnumber - 1;
+
+                }
+                else {
+                    (Ast + aindex) -> type = 5;
+                    (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *)malloc(sizeof(struct variable_declaration));
+                    strcpy((Ast + aindex)->ast_vardeclaration->name, (tokens + size + 1)->value);
+                }
                 aindex ++;
             }
             else if (strcmp(token.value, "if") == 0){
@@ -793,7 +817,7 @@ void check(struct leaf *Ast){
         }
     }
     else if (Ast -> type == 11) {
-        if ((Ast - 1) -> type != 6){
+        if (((Ast - 1) -> type != 6) && ((Ast - 1) -> type != 12)){
             puts("Error : using an else without an if.");
             exit(1);
         }
