@@ -59,9 +59,10 @@ struct leaf {
 };
 // Define the structures for the different AST node types
 struct function{
+    char         name[50];
     int          body_length;
     int          argnumber;
-    char        *condition[6];
+    char         arguments[5][10];
     struct leaf *body;
 };
 struct whilestatement{
@@ -326,6 +327,19 @@ void printAST(struct leaf *AST, int tabs){
     tabulation(tabs);
     switch(AST -> type){
         case 0:
+            printf("declare function : %s \n", AST -> ast_functiondeclaration -> name);
+            tabulation(tabs + 1);
+            for (int i = 0; i < AST -> ast_functiondeclaration -> argnumber; i ++) {
+                printf("%s ", AST -> ast_functiondeclaration -> arguments[i]);
+            }
+            printf("\n");
+            tabulation(tabs + 1);
+            puts("body :");
+            for (int i = 0; i < AST -> ast_functiondeclaration -> body_length; i++){
+                printAST(AST -> ast_functiondeclaration -> body, tabs + 2);
+                AST -> ast_functiondeclaration -> body ++;
+            }
+            AST -> ast_functiondeclaration -> body -= AST -> ast_functiondeclaration -> body_length;
             break;
         case 1:
             printf("function : %s \n", AST -> ast_function -> function);
@@ -629,14 +643,15 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 size ++;
                 lex.base_value = size;
                 copy_ast(parsestatement(lex, ")").body, (Ast + aindex), 0, 0);
-                while(strcmp((tokens + size) -> value, ")")){
+                while (strcmp((tokens + size) -> value, ")")){
                     size ++;
                 }
                 size ++;
                 aindex ++;
             }
-            else if ((token.value[0] == '\n') || (token.value[0] == '{') ||
-                       (token.value[0] == '}')) {
+            else if ((token.value[0] == '\n') ||
+                     (token.value[0] == '{') ||
+                     (token.value[0] == '}')) {
                 break;
             }
         }
@@ -644,18 +659,28 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             if (strcmp(token.value, "let") == 0){
                 if (((tokens + size + 2) -> value) [0] == '('){
                     (Ast + aindex) -> type = 0;
+                    strcpy((Ast + aindex) -> ast_functiondeclaration -> name,
+                           (tokens + size + 1) -> value);
                     (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
                     size += 3;
                     char args[5][10];
                     int argnumber = 0;
                     while ((tokens + size) -> type == 1){
-                        strcpy(args[argnumber], (tokens + size) -> value);
-                        argnumber ++;
+                        strcpy((Ast + aindex) -> ast_functiondeclaration -> arguments[(Ast + aindex) -> ast_functiondeclaration -> argnumber],
+                               (tokens + size) -> value);
+                        (Ast + aindex) -> ast_functiondeclaration -> argnumber ++;
                         size ++;
                     }
-                    puts("aa");
-                    (Ast + aindex) -> ast_functiondeclaration -> argnumber = argnumber - 1;
-
+                    size += 2;
+                    (Ast + aindex) -> ast_functiondeclaration -> argnumber --;
+                    struct parse body = parsestatement(lexer(fp1, '}'), "}");
+                    (Ast + aindex) -> ast_functiondeclaration -> body_length = body.size;
+                    (Ast + aindex) -> ast_functiondeclaration -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                    for (int i = 0; i < body.size; i ++){
+                        copy_ast(body.body, (Ast + aindex) -> ast_functiondeclaration -> body, 0, 0);
+                        (Ast + aindex) -> ast_functiondeclaration -> body ++;
+                        body.body ++;
+                    }
                 }
                 else {
                     (Ast + aindex) -> type = 5;
