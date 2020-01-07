@@ -127,6 +127,7 @@ FILE *fp1;
 struct variable *symbol_table;
 int varind = 0;
 int symbol_table_length = 20;
+int actualindentlevel = 0;
 
 // A function to check if a string is a keyword
 int iskeyword(char in[]){
@@ -298,6 +299,12 @@ struct lexline lexer(FILE *fp1, char breaker){
             }
             else{
                 if(c == '\n'){
+                    c = fgetc(fp1);
+                    while (c == ' '){
+                        puts("aaa");
+                        c = fgetc(fp1);
+                    }
+                    fseek(fp1, ftell(fp1) - 1, SEEK_SET);
                     linum ++;
                 }
                 (tokens+k)->type = 1;
@@ -305,11 +312,6 @@ struct lexline lexer(FILE *fp1, char breaker){
                 strcpy((tokens+k)->value, conv);
             }
             k++;
-        }
-        else if (c == '\t'){
-            (tokens + k) -> type = 1;
-            strcpy((tokens+k)->value, "tabulation");
-            k ++;
         }
     }
     lex.size = -1;
@@ -663,9 +665,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 size ++;
                 aindex ++;
             }
-            else if ((token.value[0] == '\n') ||
-                     (token.value[0] == '{') ||
-                     (token.value[0] == '}')) {
+            else if (token.value[0] == '\n'){
                 break;
             }
         }
