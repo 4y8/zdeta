@@ -430,6 +430,10 @@ void printAST(struct leaf *AST, int tabs){
 void freeall(struct leaf *AST){
     switch(AST -> type){
         case 0:
+            for (int i = 0; i < AST -> ast_functiondeclaration -> body_length; i++){
+                freeall(AST -> ast_functiondeclaration -> body);
+                AST -> ast_functiondeclaration -> body ++;
+            }
             break;
         case 1:
             for (int i = 0; i < AST -> ast_function -> body_length; i++){
@@ -497,6 +501,16 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
     receiver += index2;
     switch(transmitter -> type){
         case 0:
+            receiver -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
+            strcpy(receiver -> ast_functiondeclaration -> name, transmitter -> ast_functiondeclaration -> name);
+            receiver -> ast_functiondeclaration -> argnumber = transmitter -> ast_functiondeclaration -> argnumber;
+            receiver -> ast_functiondeclaration -> body_length = transmitter -> ast_functiondeclaration -> body_length;
+            for (int i = 0; i < transmitter -> ast_functiondeclaration -> argnumber; i++){
+                strcpy(receiver -> ast_functiondeclaration -> arguments[i], transmitter -> ast_functiondeclaration -> arguments[i]);
+            }
+            for (int i = 0; i < (transmitter -> ast_functiondeclaration -> body_length); i++){
+                copy_ast(transmitter -> ast_functiondeclaration -> body, receiver -> ast_functiondeclaration -> body, i, i);
+            }
             break;
         case 1:
             receiver -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -659,21 +673,21 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             if (strcmp(token.value, "let") == 0){
                 if (((tokens + size + 2) -> value) [0] == '('){
                     (Ast + aindex) -> type = 0;
+                    (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
                     strcpy((Ast + aindex) -> ast_functiondeclaration -> name,
                            (tokens + size + 1) -> value);
-                    (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
                     size += 3;
-                    char args[5][10];
-                    int argnumber = 0;
                     while ((tokens + size) -> type == 1){
                         strcpy((Ast + aindex) -> ast_functiondeclaration -> arguments[(Ast + aindex) -> ast_functiondeclaration -> argnumber],
                                (tokens + size) -> value);
                         (Ast + aindex) -> ast_functiondeclaration -> argnumber ++;
                         size ++;
                     }
-                    size += 2;
+                    size += 4;
+                    puts((tokens + size) -> value);
                     (Ast + aindex) -> ast_functiondeclaration -> argnumber --;
                     struct parse body = parsestatement(lexer(fp1, '}'), "}");
+                    printAST(body.body, 0);
                     (Ast + aindex) -> ast_functiondeclaration -> body_length = body.size;
                     (Ast + aindex) -> ast_functiondeclaration -> body = (struct leaf*) malloc(sizeof(struct leaf));
                     for (int i = 0; i < body.size; i ++){
@@ -681,6 +695,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                         (Ast + aindex) -> ast_functiondeclaration -> body ++;
                         body.body ++;
                     }
+                    (Ast + aindex) -> ast_functiondeclaration -> body -= body.size;
                 }
                 else {
                     (Ast + aindex) -> type = 5;
@@ -1142,7 +1157,7 @@ int main( int argc, char *argv[] ){
     outfinal.body = (struct leaf*) malloc(10 * sizeof(struct leaf));
     while(1){
         struct parse out = parsestatement(lexer(fp1, '\n'), "\n");
-        for(int i = 0; i < out.size; i ++){
+        for (int i = 0; i < out.size; i ++){
             copy_ast(out.body, outfinal.body, 0, outfinal.size);
             outfinal.size ++;
             out.body ++;
