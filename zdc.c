@@ -128,6 +128,7 @@ struct variable *symbol_table;
 int varind = 0;
 int symbol_table_length = 20;
 int actualindentlevel = 0;
+int actualspaces = 0;
 
 // A function to check if a string is a keyword
 int iskeyword(char in[]){
@@ -188,7 +189,7 @@ int varindex (char var[]){
     return j;
 }
 // The Lexer
-struct lexline lexer(FILE *fp1, char breaker){
+struct lexline lexer(FILE *fp1, int min_indent){
     struct token *tokens;
     struct lexline lex;
     tokens = (struct token*) malloc(20 * sizeof(struct token));
@@ -203,12 +204,7 @@ struct lexline lexer(FILE *fp1, char breaker){
         if (c == EOF){
             break;
         }
-        if (c == breaker){
-            lex.size = k;
-            lex.base_value = 0;
-            lex.tokens = tokens;
-            return lex;
-        }
+
         if (isalpha(c)){
             j = ftell(fp1);
             i = 0;
@@ -298,18 +294,28 @@ struct lexline lexer(FILE *fp1, char breaker){
                 c = fgetc(fp1);
             }
             else{
-                if(c == '\n'){
-                    c = fgetc(fp1);
-                    while (c == ' '){
-                        puts("aaa");
-                        c = fgetc(fp1);
-                    }
-                    fseek(fp1, ftell(fp1) - 1, SEEK_SET);
-                    linum ++;
-                }
                 (tokens+k)->type = 1;
                 conv[0] = c;
                 strcpy((tokens+k)->value, conv);
+                puts("aaaaa");
+                if(c == '\n'){
+                    int indent = 0;
+                    c = fgetc(fp1);
+                    while (c == ' '){
+                        c = fgetc(fp1);
+                        indent ++;
+                    }
+                    indent --;
+                    indent = indent / 2;
+                    if (indent <= min_indent){
+                        lex.size = k;
+                        lex.base_value = 0;
+                        lex.tokens = tokens;
+                        return lex;
+                    }
+                    printf("%c\n", c);
+                    linum ++;
+                }
             }
             k++;
         }
@@ -440,7 +446,7 @@ void freeall(struct leaf *AST){
         case 1:
             for (int i = 0; i < AST -> ast_function -> body_length; i++){
                 freeall(AST -> ast_function -> body);
-                AST->ast_function -> body ++;
+                AST -> ast_function -> body ++;
             }
             free(AST -> ast_function);
             break;
@@ -687,7 +693,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     puts((tokens + size) -> value);
                     (Ast + aindex) -> ast_functiondeclaration -> argnumber --;
                     struct parse body = parsestatement(lexer(fp1, '}'), "}");
-                    printAST(body.body, 0);
                     (Ast + aindex) -> ast_functiondeclaration -> body_length = body.size;
                     (Ast + aindex) -> ast_functiondeclaration -> body = (struct leaf*) malloc(sizeof(struct leaf));
                     for (int i = 0; i < body.size; i ++){
@@ -803,6 +808,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             else if (strcmp(token.value, "print") == 0){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 lex.base_value = size + 1;
+                size ++;
                 arg2 = parsestatement(lex, "\n").body;
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(arg2, ((Ast + aindex) -> ast_function -> body), 0, 0);
@@ -891,7 +897,7 @@ void execute(struct leaf *Ast){
                 }
                 Ast -> ast_function -> body ++;
             }
-            Ast -> ast_function -> body -= Ast -> ast_function -> body_length - 1;
+            Ast -> ast_function -> body --;
             if (Ast -> ast_function -> body -> type == 2){
                 if (((symbol_table + j) -> type == 0) || ((symbol_table + j) -> type == -1)){
                     (symbol_table + j) -> type = 0;
@@ -901,6 +907,7 @@ void execute(struct leaf *Ast){
                     puts("Error : changing the type of a variable");
                     exit(1);
                 }
+                Ast -> ast_function -> body --;
                 return;
             }
             else if(Ast -> ast_function -> body -> type == 4){
@@ -908,10 +915,14 @@ void execute(struct leaf *Ast){
                     (symbol_table + j) -> type = 1;
                     strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
                 }
-                puts("Error : changing the type of a variable");
+                else {
+                    puts("Error : changing the type of a variable");
                     exit(1);
+                }
+                Ast -> ast_function -> body --;
                 return;
             }
+
         }
         else if ((strcmp(Ast -> ast_function -> function, "+") == 0) ||
                  (strcmp(Ast -> ast_function -> function, "-") == 0) ||
@@ -1025,6 +1036,7 @@ void execute(struct leaf *Ast){
             }
         }
         else if (strcmp(Ast -> ast_function -> function, "print") == 0){
+            puts("aaaa");
             if (Ast -> ast_function -> body -> type == 1){
                 execute(Ast -> ast_function -> body);
             }
