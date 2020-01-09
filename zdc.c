@@ -10,7 +10,8 @@ enum type {operator,
            identifier,
            number,
            keyword,
-           string};
+           string,
+           switch_indent};
 // Define an enumeration to list all the possible instruction types
 enum instruction_type{function,
                       function_call,
@@ -297,7 +298,6 @@ struct lexline lexer(FILE *fp1, int min_indent){
                 (tokens+k)->type = 1;
                 conv[0] = c;
                 strcpy((tokens+k)->value, conv);
-                puts("aaaaa");
                 if(c == '\n'){
                     int indent = 0;
                     c = fgetc(fp1);
@@ -305,7 +305,9 @@ struct lexline lexer(FILE *fp1, int min_indent){
                         c = fgetc(fp1);
                         indent ++;
                     }
-                    indent --;
+                    if ( c != EOF ){
+                        fseek(fp1, ftell(fp1) - 1, SEEK_SET);
+                    }
                     indent = indent / 2;
                     if (indent <= min_indent){
                         lex.size = k;
@@ -313,7 +315,6 @@ struct lexline lexer(FILE *fp1, int min_indent){
                         lex.tokens = tokens;
                         return lex;
                     }
-                    printf("%c\n", c);
                     linum ++;
                 }
             }
@@ -690,7 +691,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                         size ++;
                     }
                     size += 4;
-                    puts((tokens + size) -> value);
                     (Ast + aindex) -> ast_functiondeclaration -> argnumber --;
                     struct parse body = parsestatement(lexer(fp1, '}'), "}");
                     (Ast + aindex) -> ast_functiondeclaration -> body_length = body.size;
@@ -703,9 +703,10 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     (Ast + aindex) -> ast_functiondeclaration -> body -= body.size;
                 }
                 else {
+                    puts("aaa");
                     (Ast + aindex) -> type = 5;
                     (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *)malloc(sizeof(struct variable_declaration));
-                    strcpy((Ast + aindex)->ast_vardeclaration->name, (tokens + size + 1)->value);
+                    strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
                 }
                 aindex ++;
             }
@@ -714,8 +715,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 lex.base_value = size + 1;
                 struct parse argcondition;
                 struct parse argbody;
-                argcondition = parsestatement(lex, "{");
-                argbody = parsestatement(lexer(fp1, '}'), "}");
+                argcondition = parsestatement(lex, "\n");
+                while(((tokens + size) -> value)[0] != '\n' ){
+                    size ++;
+                }
+                lex.base_value = size + 1;
+                argbody = parsestatement(lex, "}");
                 (Ast + aindex) -> type = 6;
                 (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
@@ -728,11 +733,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 (Ast + aindex) -> ast_if -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_if -> body -= argbody.size;
-                while(((tokens + size) -> value)[0] != '{' ){
-                    size ++;
-                }
-                size ++;
                 aindex ++;
+                break;
             }
             else if (strcmp(token.value, "while") == 0){
                 (Ast + aindex) -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
@@ -784,8 +786,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             else if (strcmp(token.value, "elif") == 0){
                 (Ast + aindex) -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement(lexer(fp1, '}'), "}");
                 struct parse argcondition = parsestatement(lex, "{");
+                while(((tokens + size) -> value)[0] != '{' ){
+                    size ++;
+                }
+                struct parse argbody = parsestatement(lex, "}");
+                lex.base_value = size;
                 (Ast + aindex) -> type = 12;
                 (Ast + aindex) -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_elif -> condition, 0, 0);
@@ -1036,7 +1042,6 @@ void execute(struct leaf *Ast){
             }
         }
         else if (strcmp(Ast -> ast_function -> function, "print") == 0){
-            puts("aaaa");
             if (Ast -> ast_function -> body -> type == 1){
                 execute(Ast -> ast_function -> body);
             }
@@ -1168,7 +1173,7 @@ int main( int argc, char *argv[] ){
     outfinal.size = 0;
     outfinal.body = (struct leaf*) malloc(10 * sizeof(struct leaf));
     while(1){
-        struct parse out = parsestatement(lexer(fp1, '\n'), "\n");
+        struct parse out = parsestatement(lexer(fp1, 0), "\n");
         for (int i = 0; i < out.size; i ++){
             copy_ast(out.body, outfinal.body, 0, outfinal.size);
             outfinal.size ++;
@@ -1179,6 +1184,11 @@ int main( int argc, char *argv[] ){
         }
     }
     fclose(fp1);
+    for (int i = 0; i < outfinal.size; i++){
+        printAST(outfinal.body, 0);
+        outfinal.body ++;
+    }
+    outfinal.body -= outfinal.size;
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
