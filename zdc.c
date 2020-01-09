@@ -678,7 +678,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
         }
         else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
-                if (((tokens + size + 2) -> value) [0] == '('){
+                if ((((tokens + size + 2) -> value) [0] != '=') && (((tokens + size + 2) -> value) [0] != '\n')){
                     (Ast + aindex) -> type = 0;
                     (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
                     strcpy((Ast + aindex) -> ast_functiondeclaration -> name,
@@ -703,7 +703,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     (Ast + aindex) -> ast_functiondeclaration -> body -= body.size;
                 }
                 else {
-                    puts("aaa");
                     (Ast + aindex) -> type = 5;
                     (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *)malloc(sizeof(struct variable_declaration));
                     strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
@@ -713,14 +712,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             else if (strcmp(token.value, "if") == 0){
                 (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
                 lex.base_value = size + 1;
-                struct parse argcondition;
-                struct parse argbody;
-                argcondition = parsestatement(lex, "\n");
+                struct parse argcondition = parsestatement(lex, "\n");
                 while(((tokens + size) -> value)[0] != '\n' ){
                     size ++;
                 }
                 lex.base_value = size + 1;
-                argbody = parsestatement(lex, "}");
+                struct parse argbody = parsestatement(lex, "}");
                 (Ast + aindex) -> type = 6;
                 (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
@@ -739,10 +736,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             else if (strcmp(token.value, "while") == 0){
                 (Ast + aindex) -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
                 lex.base_value = size + 1;
-                struct parse argcondition;
-                struct parse argbody;
-                argcondition = parsestatement(lex, "{");
-                argbody = parsestatement(lexer(fp1, '}'), "}");
+                struct parse argcondition = parsestatement(lex, "\n");
+                while(((tokens + size) -> value)[0] != '\n' ){
+                    size ++;
+                }
+                lex.base_value = size + 1;
+                struct parse argbody = parsestatement(lex, "}");
                 (Ast + aindex) -> type = 7;
                 (Ast + aindex) -> ast_while -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
@@ -755,17 +754,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 (Ast + aindex) -> ast_while -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_while -> body -= argbody.size;
-                while(((tokens + size) -> value)[0] != '{' ){
-                    size ++;
-                }
-                size ++;
                 aindex ++;
+                break;
             }
             else if (strcmp(token.value, "else") == 0){
                 (Ast + aindex) -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
+                while(((tokens + size) -> value)[0] != '\n' ){
+                    size ++;
+                }
                 lex.base_value = size + 1;
-                struct parse argbody;
-                argbody = parsestatement(lexer(fp1, '}'), "}");
+                struct parse argbody = parsestatement(lex, "}");
+                lex.base_value = size + 1;
                 (Ast + aindex) -> type = 11;
                 (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_else -> truth = 1;
@@ -777,21 +776,18 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 (Ast + aindex) -> ast_else -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_else -> body -= argbody.size;
-                while(((tokens + size) -> value)[0] != '{' ){
-                    size ++;
-                }
-                size ++;
                 aindex ++;
+                break;
             }
             else if (strcmp(token.value, "elif") == 0){
                 (Ast + aindex) -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
                 lex.base_value = size + 1;
-                struct parse argcondition = parsestatement(lex, "{");
-                while(((tokens + size) -> value)[0] != '{' ){
+                struct parse argcondition = parsestatement(lex, "\n");
+                while(((tokens + size) -> value)[0] != '\n' ){
                     size ++;
                 }
+                lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "}");
-                lex.base_value = size;
                 (Ast + aindex) -> type = 12;
                 (Ast + aindex) -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_elif -> condition, 0, 0);
@@ -805,11 +801,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 (Ast + aindex) -> ast_elif -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_elif -> body -= argbody.size;
-                while(((tokens + size) -> value)[0] != '{' ){
-                    size ++;
-                }
-                size ++;
                 aindex ++;
+                break;
             }
             else if (strcmp(token.value, "print") == 0){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -825,6 +818,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     size ++;
                 }
                 aindex ++;
+                break;
             }
             size ++;
         }
@@ -1184,11 +1178,6 @@ int main( int argc, char *argv[] ){
         }
     }
     fclose(fp1);
-    for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
