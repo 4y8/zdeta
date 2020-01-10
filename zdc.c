@@ -872,263 +872,195 @@ void check(struct leaf *Ast){
 }
 
 void execute(struct leaf *Ast){
-    if (Ast -> type == 5){
-        strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
-        (symbol_table + varind) -> type = -1;
-        varind ++;
-    }
-    else if (Ast -> type == 1){
-        if (strcmp(Ast -> ast_function -> function, "=") == 0){
-            int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
-            Ast -> ast_function -> body ++;
-            if (Ast -> ast_function -> body -> type == 1){
-                execute(Ast -> ast_function -> body);
-            }
-            Ast -> ast_function -> body --;
-            for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
-                if (Ast -> ast_function -> body -> type == 10) {
-                    int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
-                    if ((symbol_table + j) -> type == 0){
-                        free(Ast -> ast_function -> body -> ast_identifier);
-                        Ast -> ast_function -> body -> type = 2;
-                        Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
-                        Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
-                    }
-                }
+    switch (Ast -> type){
+        case 5 :
+            strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
+            (symbol_table + varind) -> type = -1;
+            varind ++;
+            break;
+        case 1 :
+            if (strcmp(Ast -> ast_function -> function, "=") == 0){
+                int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
                 Ast -> ast_function -> body ++;
-            }
-            Ast -> ast_function -> body --;
-            if (Ast -> ast_function -> body -> type == 2){
-                if (((symbol_table + j) -> type == 0) || ((symbol_table + j) -> type == -1)){
-                    (symbol_table + j) -> type = 0;
-                    (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
-                }
-                else {
-                    puts("Error : changing the type of a variable");
-                    exit(1);
+                if (Ast -> ast_function -> body -> type == 1){
+                    execute(Ast -> ast_function -> body);
                 }
                 Ast -> ast_function -> body --;
-                return;
-            }
-            else if(Ast -> ast_function -> body -> type == 4){
-                if (((symbol_table + j) -> type == 1) || ((symbol_table + j) -> type == -1)){
-                    (symbol_table + j) -> type = 1;
-                    strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
-                }
-                else {
-                    puts("Error : changing the type of a variable");
-                    exit(1);
+                for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
+                    if (Ast -> ast_function -> body -> type == 10) {
+                        int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                        if ((symbol_table + j) -> type == 0){
+                            free(Ast -> ast_function -> body -> ast_identifier);
+                            Ast -> ast_function -> body -> type = 2;
+                            Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
+                            Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+                        }
+                    }
+                    Ast -> ast_function -> body ++;
                 }
                 Ast -> ast_function -> body --;
-                return;
+                if (Ast -> ast_function -> body -> type == 2){
+                    if (((symbol_table + j) -> type == 0) || ((symbol_table + j) -> type == -1)){
+                        (symbol_table + j) -> type = 0;
+                        (symbol_table + j) -> integer = Ast -> ast_function -> body -> ast_number -> value;
+                    }
+                    else {
+                        puts("Error : changing the type of a variable");
+                        exit(1);
+                    }
+                    Ast -> ast_function -> body --;
+                    return;
+                }
+                else if(Ast -> ast_function -> body -> type == 4){
+                    if (((symbol_table + j) -> type == 1) || ((symbol_table + j) -> type == -1)){
+                        (symbol_table + j) -> type = 1;
+                        strcpy((symbol_table + j) -> string, Ast -> ast_function -> body -> ast_string -> value);
+                    }
+                    else {
+                        puts("Error : changing the type of a variable");
+                        exit(1);
+                    }
+                    Ast -> ast_function -> body --;
+                    return;
+                }
             }
-
-        }
-        else if ((strcmp(Ast -> ast_function -> function, "+") == 0) ||
+            else if ((strcmp(Ast -> ast_function -> function, "+") == 0) ||
                  (strcmp(Ast -> ast_function -> function, "-") == 0) ||
                  (strcmp(Ast -> ast_function -> function, "*") == 0) ||
                  (strcmp(Ast -> ast_function -> function, "/") == 0)){
-            for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
-                if (Ast -> ast_function -> body -> type == 10) {
-                    int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
-                    if ((symbol_table + j) -> type == 0){
-                        free(Ast -> ast_function -> body -> ast_identifier);
-                        Ast -> ast_function -> body -> type = 2;
-                        Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
-                        Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+                for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
+                    if (Ast -> ast_function -> body -> type == 10) {
+                        int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                        if ((symbol_table + j) -> type == 0){
+                            Ast -> ast_function -> body -> type = 2;
+                            Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
+                            Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+                        }
                     }
+                    else if (Ast -> ast_function -> body -> type == 1) {
+                        execute(Ast -> ast_function -> body);
+                    }
+                    Ast -> ast_function -> body ++;
                 }
-                else if (Ast -> ast_function -> body -> type == 1) {
-                    execute(Ast -> ast_function -> body);
-                }
-                Ast -> ast_function -> body ++;
-            }
-            Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
-            if (Ast -> ast_function -> body -> type == 2){
-                int i = Ast -> ast_function -> body -> ast_number -> value;
-                Ast -> ast_function -> body ++;
+                Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
                 if (Ast -> ast_function -> body -> type == 2){
-                    int j = Ast -> ast_function -> body -> ast_number -> value;
-                    Ast -> type = 2;
-                    char c = (Ast -> ast_function -> function)[0];
-                    free(Ast -> ast_function);
-                    Ast -> ast_number = (struct number*) malloc(sizeof(struct number));
-                    switch(c){
-                        case '+':
-                            Ast -> ast_number -> value = i + j;
-                            break;
-                        case '-':
-                            Ast -> ast_number -> value = i - j;
-                            break;
-                        case '*':
-                            Ast -> ast_number -> value = i * j;
-                            break;
-                        case '/':
-                            Ast -> ast_number -> value = i / j;
-                            break;
+                    int i = Ast -> ast_function -> body -> ast_number -> value;
+                    Ast -> ast_function -> body ++;
+                    if (Ast -> ast_function -> body -> type == 2){
+                        int j = Ast -> ast_function -> body -> ast_number -> value;
+                        Ast -> type = 2;
+                        char c = (Ast -> ast_function -> function)[0];
+                        Ast -> ast_number = (struct number*) malloc(sizeof(struct number));
+                        switch(c){
+                            case '+':
+                                Ast -> ast_number -> value = i + j;
+                                break;
+                            case '-':
+                                Ast -> ast_number -> value = i - j;
+                                break;
+                            case '*':
+                                Ast -> ast_number -> value = i * j;
+                                break;
+                            case '/':
+                                Ast -> ast_number -> value = i / j;
+                                break;
+                        }
                     }
                 }
             }
-        }
-        else if ((strcmp(Ast -> ast_function -> function, "<") == 0) ||
-                 (strcmp(Ast -> ast_function -> function, ">") == 0) ||
-                 (strcmp(Ast -> ast_function -> function, "==") == 0)){
-            for (int u = 0; u < 2; u ++){
-                if (Ast -> ast_function -> body -> type == 10) {
-                    int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
-                    if ((symbol_table + j) -> type == 0){
-                        free(Ast -> ast_function -> body -> ast_identifier);
-                        Ast -> ast_function -> body -> type = 2;
-                        Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
-                        Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+            else if ((strcmp(Ast -> ast_function -> function, "<") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, ">") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, "==") == 0)){
+                for (int u = 0; u < 2; u ++){
+                    if (Ast -> ast_function -> body -> type == 10) {
+                        int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                        if ((symbol_table + j) -> type == 0){
+                            Ast -> ast_function -> body -> type = 2;
+                            Ast -> ast_function -> body -> ast_number = (struct number*) malloc(sizeof(struct number));
+                            Ast -> ast_function -> body -> ast_number -> value = (symbol_table + j) -> integer;
+                        }
+                    }
+                    else if (Ast -> ast_function -> body -> type == 1) {
+                        execute(Ast -> ast_function -> body);
+                    }
+                    Ast -> ast_function -> body ++;
+                }
+                Ast -> ast_function -> body -= 2;
+                int t1 = Ast -> ast_function -> body -> type;
+                Ast -> ast_function -> body ++;
+                int t2 = Ast -> ast_function -> body -> type;
+                if ((t1 == t2) && (t1== 2)){
+                    int j = Ast -> ast_function -> body -> ast_number -> value;
+                    Ast -> ast_function -> body --;
+                    int i = Ast -> ast_function -> body -> ast_number -> value;
+                    if (((i < j)  && strcmp(Ast -> ast_function -> function, "<") == 0) ||
+                        ((i > j)  && strcmp(Ast -> ast_function -> function, ">") == 0) ||
+                        ((i == j) && strcmp(Ast ->ast_function -> function, "==") == 0)){
+                        Ast -> type = 3;
+                        Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
+                        Ast -> ast_bool -> value = 1;
+                    }
+                    else {
+                        Ast -> type = 3;
+                        Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
+                        Ast -> ast_bool -> value = 0;
                     }
                 }
-                else if (Ast -> ast_function -> body -> type == 1) {
+                else if ((t1 == t2) && (t1 == 4)) {
+                    char j[100];
+                    strcpy(j, Ast -> ast_function -> body -> ast_string -> value);
+                    Ast -> ast_function -> body ++;
+                    char i[100];
+                    strcpy(i, Ast -> ast_function -> body -> ast_string -> value);
+                    if ((strcmp(Ast -> ast_function -> function, "<") == 0) ||
+                        (strcmp(Ast -> ast_function -> function, ">") == 0)){
+                        puts("Error : can't say if a string is superior or inferior to another string.");
+                    }
+                    else if (strcmp(i, j) == 0){
+                        Ast -> type = 3;
+                        Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
+                        Ast -> ast_bool -> value = 1;
+                    }
+                    else  {
+                        Ast -> type = 3;
+                        Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
+                        Ast -> ast_bool -> value = 0;
+                    }
+                }
+                else {
+                    puts("Error : comparing values of different types.");
+                    exit(0);
+                }
+            }
+            else if (strcmp(Ast -> ast_function -> function, "print") == 0){
+                if (Ast -> ast_function -> body -> type == 1){
                     execute(Ast -> ast_function -> body);
                 }
-                Ast -> ast_function -> body ++;
-            }
-            Ast -> ast_function -> body -= 2;
-            int t1 = Ast -> ast_function -> body -> type;
-            Ast -> ast_function -> body ++;
-            int t2 = Ast -> ast_function -> body -> type;
-            if ((t1 == t2) && (t1== 2)){
-                int j = Ast -> ast_function -> body -> ast_number -> value;
-                Ast -> ast_function -> body --;
-                int i = Ast -> ast_function -> body -> ast_number -> value;
-                if (((i < j)  && strcmp(Ast -> ast_function -> function, "<") == 0) ||
-                    ((i > j)  && strcmp(Ast -> ast_function -> function, ">") == 0) ||
-                    ((i == j) && strcmp(Ast ->ast_function -> function, "==") == 0)){
-                    Ast -> type = 3;
-                    Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
-                    Ast -> ast_bool -> value = 1;
+                if (Ast -> ast_function -> body -> type == 4){
+                    puts(Ast -> ast_function -> body -> ast_string -> value);
+                }
+                else if (Ast -> ast_function -> body -> type == 10){
+                    int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
+                    if ((symbol_table + j) -> type == 0) {
+                        printf("%d\n", (symbol_table + j) -> integer);
                     }
-                else {
-                    Ast -> type = 3;
-                    Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
-                    Ast -> ast_bool -> value = 0;
-                }
-            }
-            else if ((t1 == t2) && (t1 == 4)) {
-                char j[100];
-                strcpy(j, Ast -> ast_function -> body -> ast_string -> value);
-                Ast -> ast_function -> body ++;
-                char i[100];
-                strcpy(i, Ast -> ast_function -> body -> ast_string -> value);
-                if ((strcmp(Ast -> ast_function -> function, "<") == 0) ||
-                    (strcmp(Ast -> ast_function -> function, ">") == 0)){
-                    puts("Error : can't say if a string is superior or inferior to another string.");
-                }
-                else if (strcmp(i, j) == 0){
-                    Ast -> type = 3;
-                    Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
-                    Ast -> ast_bool -> value = 1;
-                }
-                else  {
-                    Ast -> type = 3;
-                    Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
-                    Ast -> ast_bool -> value = 0;
-                }
-            }
-            else {
-                puts("Error : comparing values of different types.");
-                exit(0);
-            }
-        }
-        else if (strcmp(Ast -> ast_function -> function, "print") == 0){
-            if (Ast -> ast_function -> body -> type == 1){
-                execute(Ast -> ast_function -> body);
-            }
-            if (Ast -> ast_function -> body -> type == 4){
-                puts(Ast -> ast_function -> body -> ast_string -> value);
-            }
-            else if (Ast -> ast_function -> body -> type == 10){
-                int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
-                if ((symbol_table + j) -> type == 0) {
-                    printf("%d\n", (symbol_table + j) -> integer);
-                }
-                else if ((symbol_table + j) -> type == 1){
-                    puts((symbol_table + j) -> string);
-                }
-            }
-        }
-    }
-    else if (Ast -> type == 6){
-        if (Ast -> ast_if -> condition -> type == 1){
-            execute(Ast -> ast_if -> condition);
-        }
-        if (Ast -> ast_if -> condition -> type == 3){
-            if (Ast -> ast_if -> condition -> ast_bool -> value == 1){
-                if ((Ast + 1) -> type == 11) {
-                    (Ast + 1) -> ast_else -> truth = 0;
-                }
-                else if ((Ast + 1) -> type == 12) {
-                    (Ast + 1) -> ast_elif -> truth = 0;
-                }
-                for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
-                    execute(Ast -> ast_if -> body);
-                    Ast -> ast_if -> body ++;
-                }
-                Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
-            }
-            else {
-                if ((Ast + 1) -> type == 11) {
-                    (Ast + 1) -> ast_else -> truth = 1;
-                }
-                else if ((Ast + 1) -> type == 12) {
-                    (Ast + 1) -> ast_elif -> truth = 1;
-                }
-            }
-        }
-    }
-    else if (Ast -> type == 7){
-        struct leaf *Ast1;
-        Ast1 = (struct leaf*) malloc(sizeof(struct leaf));
-        copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
-        if (Ast -> ast_while -> condition -> type == 1){
-            execute(Ast1);
-        }
-        if (Ast1 -> type == 3){
-            while (1) {
-                free(Ast1 -> ast_bool);
-                copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
-                if (Ast1 -> type == 1){
-                    execute(Ast1);
-                }
-                if (Ast1 -> ast_bool -> value == 1){
-                    for (int u = 0; u < Ast -> ast_while -> body_length; u ++){
-                        struct leaf *Ast2;
-                        Ast2 = (struct leaf*) malloc(sizeof(struct leaf));
-                        copy_ast(Ast -> ast_while -> body, Ast2, 0, 0);
-                        execute(Ast2);
-                        Ast -> ast_while -> body ++;
+                    else if ((symbol_table + j) -> type == 1){
+                        puts((symbol_table + j) -> string);
                     }
-                    Ast -> ast_while -> body -= Ast -> ast_while -> body_length;
-                }
-                else {
-                    break;
                 }
             }
-        }
-    }
-    else if (Ast -> type == 11){
-        if (Ast -> ast_else -> truth == 1) {
-            for (int u = 0; u < Ast -> ast_else -> body_length; u ++){
-                execute(Ast -> ast_else -> body);
-                Ast -> ast_else -> body ++;
+            break;
+        case 6 :
+            if (Ast -> ast_if -> condition -> type == 1){
+                execute(Ast -> ast_if -> condition);
             }
-            Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
-        }
-    }
-    else if (Ast -> type == 12){
-        if (Ast -> ast_elif -> truth == 1){
-            if (Ast -> ast_elif -> condition -> type == 1){
-                execute(Ast -> ast_elif -> condition);
-            }
-            if (Ast -> ast_elif -> condition -> type == 3){
-                if (Ast -> ast_elif -> condition -> ast_bool -> value == 1){
+            if (Ast -> ast_if -> condition -> type == 3){
+                if (Ast -> ast_if -> condition -> ast_bool -> value == 1){
                     if ((Ast + 1) -> type == 11) {
                         (Ast + 1) -> ast_else -> truth = 0;
+                    }
+                    else if ((Ast + 1) -> type == 12) {
+                        (Ast + 1) -> ast_elif -> truth = 0;
                     }
                     for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
                         execute(Ast -> ast_if -> body);
@@ -1145,15 +1077,81 @@ void execute(struct leaf *Ast){
                     }
                 }
             }
-        }
-        else {
-            if ((Ast + 1) -> type == 11) {
-                (Ast + 1) -> ast_else -> truth = 0;
+            break;
+        case 7 : {
+            struct leaf *Ast1 = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
+            if (Ast -> ast_while -> condition -> type == 1){
+                execute(Ast1);
             }
-            else if ((Ast + 1) -> type == 12) {
-                (Ast + 1) -> ast_elif -> truth = 0;
+            if (Ast1 -> type == 3){
+                while(1){
+                    free(Ast1 -> ast_bool);
+                    copy_ast(Ast -> ast_while -> condition, Ast1, 0, 0);
+                    if (Ast1 -> type == 1){
+                        execute(Ast1);
+                    }
+                    if (Ast1 -> ast_bool -> value == 1){
+                        for (int u = 0; u < Ast -> ast_while -> body_length; u ++){
+                            struct leaf *Ast2;
+                            Ast2 = (struct leaf*) malloc(sizeof(struct leaf));
+                            copy_ast(Ast -> ast_while -> body, Ast2, 0, 0);
+                            execute(Ast2);
+                            Ast -> ast_while -> body ++;
+                        }
+                        Ast -> ast_while -> body -= Ast -> ast_while -> body_length;
+                    }
+                    else {
+                        break;
+                    }
+                }
             }
+            break;
         }
+        case 11:
+            if (Ast -> ast_else -> truth == 1) {
+                for (int u = 0; u < Ast -> ast_else -> body_length; u ++){
+                    execute(Ast -> ast_else -> body);
+                    Ast -> ast_else -> body ++;
+                }
+                Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
+            }
+            break;
+        case 12 :
+            if (Ast -> ast_elif -> truth == 1){
+                if(Ast -> ast_elif -> condition -> type == 1){
+                    execute(Ast -> ast_elif -> condition);
+                }
+                if (Ast -> ast_elif -> condition -> type == 3){
+                    if (Ast -> ast_elif -> condition -> ast_bool -> value == 1){
+                        if ((Ast + 1) -> type == 11) {
+                            (Ast + 1) -> ast_else -> truth = 0;
+                        }
+                        for (int u = 0; u < Ast -> ast_if -> body_length; u ++){
+                            execute(Ast -> ast_if -> body);
+                            Ast -> ast_if -> body ++;
+                        }
+                        Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+                    }
+                    else {
+                        if ((Ast + 1) -> type == 11) {
+                            (Ast + 1) -> ast_else -> truth = 1;
+                        }
+                        else if ((Ast + 1) -> type == 12) {
+                            (Ast + 1) -> ast_elif -> truth = 1;
+                        }
+                    }
+                }
+            }
+            else {
+                if ((Ast + 1) -> type == 11) {
+                    (Ast + 1) -> ast_else -> truth = 0;
+                }
+                else if ((Ast + 1) -> type == 12) {
+                    (Ast + 1) -> ast_elif -> truth = 0;
+                }
+            }
+            break;
     }
 }
 
