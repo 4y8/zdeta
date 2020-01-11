@@ -10,8 +10,7 @@ enum type {operator,
            identifier,
            number,
            keyword,
-           string,
-           switch_indent};
+           string};
 // Define an enumeration to list all the possible instruction types
 enum instruction_type{function,
                       function_call,
@@ -129,7 +128,6 @@ struct variable *symbol_table;
 int varind = 0;
 int symbol_table_length = 20;
 int actualindentlevel = 0;
-int actualspaces = 0;
 
 // A function to check if a string is a keyword
 int iskeyword(char in[]){
@@ -280,8 +278,8 @@ struct lexline lexer(FILE *fp1, int min_indent){
                 fseek(fp1, j, SEEK_SET);
                 fgets(buffer, i + 1, fp1);
                 fseek(fp1, l, SEEK_SET);
-                (tokens+k)->type = 5;
-                strcpy((tokens+k)->value, buffer);
+                (tokens + k)->type = 5;
+                strcpy((tokens + k) -> value, buffer);
             }
             else if (c == '#'){
                 c = fgetc(fp1);
@@ -293,11 +291,10 @@ struct lexline lexer(FILE *fp1, int min_indent){
                 }
                 k --;
                 c = fgetc(fp1);
-            }
-            else{
-                (tokens+k)->type = 1;
+            } else {
+                (tokens + k) -> type = 1;
                 conv[0] = c;
-                strcpy((tokens+k)->value, conv);
+                strcpy((tokens + k) -> value, conv);
                 if(c == '\n'){
                     int indent = 0;
                     c = fgetc(fp1);
@@ -305,17 +302,21 @@ struct lexline lexer(FILE *fp1, int min_indent){
                         c = fgetc(fp1);
                         indent ++;
                     }
-                    if ( c != EOF ){
+                    if (c != EOF){
                         fseek(fp1, ftell(fp1) - 1, SEEK_SET);
                     }
                     indent = indent / 2;
+                    if (indent < actualindentlevel){
+                        k ++;
+                        actualindentlevel = indent;
+                        strcpy((tokens + k) -> value, "switch_indent");
+                    }
                     if (indent <= min_indent){
-                        lex.size = k;
+                        lex.size = k - 1;
                         lex.base_value = 0;
                         lex.tokens = tokens;
                         return lex;
                     }
-                    linum ++;
                 }
             }
             k++;
@@ -717,7 +718,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     size ++;
                 }
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement(lex, "}");
+                struct parse argbody = parsestatement(lex, "switch_indent");
                 (Ast + aindex) -> type = 6;
                 (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
@@ -736,7 +737,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             else if (strcmp(token.value, "while") == 0){
                 (Ast + aindex) -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
                 lex.base_value = size + 1;
-                struct parse argcondition = parsestatement(lex, "\n");
+                struct parse argcondition = parsestatement(lex, "switch_indent");
                 while(((tokens + size) -> value)[0] != '\n' ){
                     size ++;
                 }
@@ -763,7 +764,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     size ++;
                 }
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement(lex, "}");
+                struct parse argbody = parsestatement(lex, "switch_indent");
                 lex.base_value = size + 1;
                 (Ast + aindex) -> type = 11;
                 (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
@@ -787,7 +788,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     size ++;
                 }
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement(lex, "}");
+                struct parse argbody = parsestatement(lex, "switch_indent");
                 (Ast + aindex) -> type = 12;
                 (Ast + aindex) -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_elif -> condition, 0, 0);
@@ -873,10 +874,7 @@ void check(struct leaf *Ast){
 
 void execute(struct leaf *Ast){
     switch (Ast -> type){
-        case 5 :
-            strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
-            (symbol_table + varind) -> type = -1;
-            varind ++;
+        case 0 :
             break;
         case 1 :
             if (strcmp(Ast -> ast_function -> function, "=") == 0){
@@ -968,9 +966,12 @@ void execute(struct leaf *Ast){
                     }
                 }
             }
-            else if ((strcmp(Ast -> ast_function -> function, "<") == 0) ||
-                     (strcmp(Ast -> ast_function -> function, ">") == 0) ||
-                     (strcmp(Ast -> ast_function -> function, "==") == 0)){
+            else if ((strcmp(Ast -> ast_function -> function,  "<") == 0) ||
+                     (strcmp(Ast -> ast_function -> function,  ">") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, "==") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, "<=") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, ">=") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, "!=") == 0)){
                 for (int u = 0; u < 2; u ++){
                     if (Ast -> ast_function -> body -> type == 10) {
                         int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
@@ -993,9 +994,12 @@ void execute(struct leaf *Ast){
                     int j = Ast -> ast_function -> body -> ast_number -> value;
                     Ast -> ast_function -> body --;
                     int i = Ast -> ast_function -> body -> ast_number -> value;
-                    if (((i < j)  && strcmp(Ast -> ast_function -> function, "<") == 0) ||
-                        ((i > j)  && strcmp(Ast -> ast_function -> function, ">") == 0) ||
-                        ((i == j) && strcmp(Ast ->ast_function -> function, "==") == 0)){
+                    if (((i < j)  && strcmp(Ast -> ast_function -> function,  "<") == 0) ||
+                        ((i > j)  && strcmp(Ast -> ast_function -> function,  ">") == 0) ||
+                        ((i == j) && strcmp(Ast -> ast_function -> function, "==") == 0) ||
+                        ((i <= j) && strcmp(Ast -> ast_function -> function, "<=") == 0) ||
+                        ((i >= j) && strcmp(Ast -> ast_function -> function, ">=") == 0) ||
+                        ((i != j) && strcmp(Ast -> ast_function -> function, "!=") == 0)){
                         Ast -> type = 3;
                         Ast -> ast_bool = (struct bool*) malloc (sizeof(struct bool));
                         Ast -> ast_bool -> value = 1;
@@ -1049,6 +1053,17 @@ void execute(struct leaf *Ast){
                     }
                 }
             }
+            break;
+        case 2 :
+            break;
+        case 3 :
+            break;
+        case 4 :
+            break;
+        case 5 :
+            strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
+            (symbol_table + varind) -> type = -1;
+            varind ++;
             break;
         case 6 :
             if (Ast -> ast_if -> condition -> type == 1){
@@ -1108,6 +1123,12 @@ void execute(struct leaf *Ast){
             }
             break;
         }
+        case 8 :
+            break;
+        case 9 :
+            break;
+        case 10 :
+            break;
         case 11:
             if (Ast -> ast_else -> truth == 1) {
                 for (int u = 0; u < Ast -> ast_else -> body_length; u ++){
