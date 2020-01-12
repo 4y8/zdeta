@@ -317,6 +317,7 @@ struct lexline lexer(FILE *fp1, int min_indent){
                         lex.tokens = tokens;
                         return lex;
                     }
+                    actualindentlevel = indent;
                 }
             }
             k++;
@@ -684,14 +685,14 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                     (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
                     strcpy((Ast + aindex) -> ast_functiondeclaration -> name,
                            (tokens + size + 1) -> value);
-                    size += 3;
+                    size += 2;
                     while ((tokens + size) -> type == 1){
                         strcpy((Ast + aindex) -> ast_functiondeclaration -> arguments[(Ast + aindex) -> ast_functiondeclaration -> argnumber],
                                (tokens + size) -> value);
                         (Ast + aindex) -> ast_functiondeclaration -> argnumber ++;
                         size ++;
                     }
-                    size += 4;
+                    size ++;
                     (Ast + aindex) -> ast_functiondeclaration -> argnumber --;
                     struct parse body = parsestatement(lexer(fp1, '}'), "}");
                     (Ast + aindex) -> ast_functiondeclaration -> body_length = body.size;
@@ -732,7 +733,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_if -> body -= argbody.size;
                 aindex ++;
-                break;
+                while (strcmp("switch_indent", (tokens + size) -> value)){
+                    size ++;
+                }
             }
             else if (strcmp(token.value, "while") == 0){
                 (Ast + aindex) -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
@@ -756,7 +759,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_while -> body -= argbody.size;
                 aindex ++;
-                break;
+                while (strcmp("switch_indent", (tokens + size) -> value)){
+                    size ++;
+                }
             }
             else if (strcmp(token.value, "else") == 0){
                 (Ast + aindex) -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
@@ -778,7 +783,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_else -> body -= argbody.size;
                 aindex ++;
-                break;
+                while (strcmp("switch_indent", (tokens + size) -> value)){
+                    size ++;
+                }
             }
             else if (strcmp(token.value, "elif") == 0){
                 (Ast + aindex) -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
@@ -803,7 +810,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_elif -> body -= argbody.size;
                 aindex ++;
-                break;
+                while (strcmp("switch_indent", (tokens + size) -> value)){
+                    size ++;
+                }
             }
             else if (strcmp(token.value, "print") == 0){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -923,9 +932,9 @@ void execute(struct leaf *Ast){
                 }
             }
             else if ((strcmp(Ast -> ast_function -> function, "+") == 0) ||
-                 (strcmp(Ast -> ast_function -> function, "-") == 0) ||
-                 (strcmp(Ast -> ast_function -> function, "*") == 0) ||
-                 (strcmp(Ast -> ast_function -> function, "/") == 0)){
+                     (strcmp(Ast -> ast_function -> function, "-") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, "*") == 0) ||
+                     (strcmp(Ast -> ast_function -> function, "/") == 0)){
                 for (int u = 0; u < Ast -> ast_function -> body_length; u ++){
                     if (Ast -> ast_function -> body -> type == 10) {
                         int j = varindex(Ast -> ast_function -> body -> ast_identifier -> name);
@@ -1052,6 +1061,7 @@ void execute(struct leaf *Ast){
                         puts((symbol_table + j) -> string);
                     }
                 }
+                break;
             }
             break;
         case 2 :
@@ -1081,7 +1091,16 @@ void execute(struct leaf *Ast){
                         execute(Ast -> ast_if -> body);
                         Ast -> ast_if -> body ++;
                     }
-                    Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+                    Ast -> ast_if -> body --;
+                    if ((Ast -> ast_if -> body -> type == 2) ||
+                        (Ast -> ast_if -> body -> type == 3) ||
+                        (Ast -> ast_if -> body -> type == 4)){
+                        struct leaf *local_ast;
+                        copy_ast(Ast -> ast_if -> body, local_ast, 0, 0);
+                        copy_ast(local_ast, Ast, 0, 0);
+                        free(local_ast);
+                    }
+                    Ast -> ast_if -> body -= Ast -> ast_if -> body_length - 1;
                 }
                 else {
                     if ((Ast + 1) -> type == 11) {
@@ -1135,7 +1154,16 @@ void execute(struct leaf *Ast){
                     execute(Ast -> ast_else -> body);
                     Ast -> ast_else -> body ++;
                 }
-                Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
+                Ast -> ast_if -> body --;
+                if ((Ast -> ast_if -> body -> type = 2) ||
+                    (Ast -> ast_if -> body -> type = 3) ||
+                    (Ast -> ast_if -> body -> type = 4)){
+                    struct leaf *local_ast;
+                    copy_ast(Ast -> ast_if -> body, local_ast, 0, 0);
+                    copy_ast(local_ast, Ast, 0, 0);
+                    free(local_ast);
+                }
+                Ast -> ast_if -> body -= Ast -> ast_if -> body_length - 1;
             }
             break;
         case 12 :
@@ -1152,7 +1180,16 @@ void execute(struct leaf *Ast){
                             execute(Ast -> ast_if -> body);
                             Ast -> ast_if -> body ++;
                         }
-                        Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+                        Ast -> ast_if -> body --;
+                        if ((Ast -> ast_if -> body -> type = 2) ||
+                            (Ast -> ast_if -> body -> type = 3) ||
+                            (Ast -> ast_if -> body -> type = 4)){
+                            struct leaf *local_ast;
+                            copy_ast(Ast -> ast_if -> body, local_ast, 0, 0);
+                            copy_ast(local_ast, Ast, 0, 0);
+                            free(local_ast);
+                        }
+                        Ast -> ast_if -> body -= Ast -> ast_if -> body_length - 1;
                     }
                     else {
                         if ((Ast + 1) -> type == 11) {
