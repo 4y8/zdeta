@@ -124,9 +124,9 @@ char *keywords[13] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "var", "swap", "case", "switch", "iter"}; // List of keybords
 int linum = 1; // The variable to keep track of the current line
 FILE *fp1;
+FILE *outfile;
 struct variable *symbol_table;
-int varind = 0;
-int symbol_table_length = 20;
+int varind = 0; // Keep track of the actual free symbol table place
 int actualindentlevel = 0;
 
 // A function to check if a string is a keyword
@@ -176,7 +176,7 @@ int operatorPrecedence (char operator[]){
 }
 int varindex (char var[]){
     int j = -1;
-    for (int i = 0; i < symbol_table_length; i++){
+    for (int i = 0; i < 20; i++){
         if (strcmp((symbol_table + i) -> name, var) == 0){
             j = i;
         }
@@ -845,10 +845,10 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
         while (current_operator >= 0) {
             arg2 = (struct leaf *)malloc(sizeof(struct leaf));
             copy_ast(Ast, arg2, aindex - 2, 0);
-            (Ast + aindex - 2)->ast_function = (struct functioncall *)malloc(sizeof(struct functioncall));
-            (Ast + aindex - 2)->ast_function->body = (struct leaf *)malloc(2 * sizeof(struct leaf));
-            (Ast + aindex - 2)->type = 1;
-            strcpy(((Ast + aindex - 2)->ast_function)->function,
+            (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
+            (Ast + aindex - 2) -> ast_function->body = (struct leaf *) malloc(2 * sizeof(struct leaf));
+            (Ast + aindex - 2) -> type = 1;
+            strcpy(((Ast + aindex - 2) -> ast_function) -> function,
                    operators[current_operator].value);
             copy_ast(arg2, (Ast + aindex - 2)->ast_function->body, 0, 0);
             copy_ast(Ast, (Ast + aindex - 2)->ast_function->body, aindex - 1, 1);
@@ -1213,11 +1213,82 @@ void execute(struct leaf *Ast){
     }
 }
 
+// Functions for the actual compiler
+static char *reglist[4]= { "r8", "r9", "r10", "r11" }; //List of registers
+int registers[4] = {0, 0, 0, 0};
+
+int used_registers = 0;
+
+int new_register (void)
+{
+    used_registers ++;
+    return used_registers - 1;
+}
+
+void free_register (int register_to_free){
+    registers[register_to_free] = 0;
+    return;
+}
+
+int compile (struct leaf *Ast)
+{
+    switch (Ast -> type)
+    {
+        case 0 :
+            break;
+        case 1 :
+            switch (Ast -> ast_function -> function[0])
+            {
+                case '+' :
+                {
+                    int arg1 = compile (Ast -> ast_function -> body);
+                    Ast -> ast_function -> body ++;
+                    int arg2 = compile (Ast -> ast_function -> body);
+                    Ast -> ast_function -> body --;
+                    fprintf(outfile, "\tadd\t%s, %s\n", reglist[arg1], reglist[arg2]);
+                    free_register(arg2);
+                    return arg1;
+                }
+            }
+            break;
+        case 2 :
+        {
+            int reg = new_register();
+            fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
+            return reg;
+            break;
+        }
+        case 3 :
+            break;
+        case 4 :
+            break;
+        case 5 :
+            break;
+        case 6 :
+            break;
+        case 7 :
+            break;
+        case 8 :
+            break;
+        case 9 :
+            break;
+        case 10 :
+            break;
+        case 11:
+            break;
+        case 12 :
+            break;
+    }
+    return 0;
+}
+
 int main( int argc, char *argv[] ){
     if (argc != 2){
         exit(1);
     }
     fp1 = fopen (argv[1], "r");
+    outfile = fopen ("out.asm", "w");
+    fprintf(outfile, "SECTION .text\nglobal  _start\n _start:\n\n");
     struct parse outfinal;
     symbol_table  = (struct variable*) malloc(20 * sizeof(struct variable));
     outfinal.size = 0;
@@ -1240,7 +1311,7 @@ int main( int argc, char *argv[] ){
     }
     outfinal.body -= outfinal.size;
     for (int i = 0; i < outfinal.size; i++){
-        execute(outfinal.body);
+        compile(outfinal.body);
         outfinal.body ++;
     }
     outfinal.body -= outfinal.size;
