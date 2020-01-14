@@ -5,29 +5,29 @@
 #include <string.h>
 
 // Define an enumeration to list all the possible token types
-enum type {operator,
-           separator,
-           identifier,
-           number,
-           keyword,
-           string};
+enum type { operator,
+            separator,
+            identifier,
+            number,
+            keyword,
+            string};
 // Define an enumeration to list all the possible instruction types
-enum instruction_type{function,
-                      function_call,
-                      znumber,
-                      zbool,
-                      zstring,
-                      vardeclaration,
-                      ifstatement,
-                      whilestatement,
-                      returnstatement,
-                      AST,
-                      zidentifier,
-                      elsestatement,
-                      elifstatement};
-enum variable_type{integer,
-                   char_list,
-                   bool};
+enum instruction_type{ function,
+                       function_call,
+                       znumber,
+                       zbool,
+                       zstring,
+                       vardeclaration,
+                       ifstatement,
+                       whilestatement,
+                       returnstatement,
+                       AST,
+                       zidentifier,
+                       elsestatement,
+                       elifstatement};
+enum variable_type{ integer,
+                    char_list,
+                    bool};
 // Define the structure for a token with a type and a name
 struct token {
     enum type type;
@@ -113,6 +113,7 @@ struct parse {
 struct variable{
     char               name[20];
     enum variable_type type;
+    int                is_static;
     union {
         char string[50];
         int  integer;
@@ -1216,7 +1217,7 @@ void execute(struct leaf *Ast){
 // Functions for the actual compiler
 static char *reglist[4]= { "r8", "r9", "r10", "r11" }; //List of registers
 int registers[4] = {0, 0, 0, 0};
-
+int number_stings = 0;
 int used_registers = 0;
 
 int new_register (void)
@@ -1225,12 +1226,12 @@ int new_register (void)
     return used_registers - 1;
 }
 
-void free_register (int register_to_free){
-    registers[register_to_free] = 0;
+void free_register (){
+    used_registers --;
     return;
 }
 
-int compile (struct leaf *Ast)
+char *compile (struct leaf *Ast)
 {
     switch (Ast -> type)
     {
@@ -1241,26 +1242,46 @@ int compile (struct leaf *Ast)
             {
                 case '+' :
                 {
-                    int arg1 = compile (Ast -> ast_function -> body);
+                    char *arg1= malloc (sizeof(*arg1) * 256);
+                    strcpy(arg1, compile (Ast -> ast_function -> body));
                     Ast -> ast_function -> body ++;
-                    int arg2 = compile (Ast -> ast_function -> body);
+                    char *arg2= malloc (sizeof(*arg2) * 256);
+                    strcpy(arg2, compile (Ast -> ast_function -> body));
                     Ast -> ast_function -> body --;
-                    fprintf(outfile, "\tadd\t%s, %s\n", reglist[arg1], reglist[arg2]);
-                    free_register(arg2);
+                    fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
+                    free_register();
+                    free(arg2);
                     return arg1;
                 }
+                break;
+                default :
+                    if (strcmp("print", Ast -> ast_function -> function) == 0)
+                    {
+                        char *arg1= malloc (sizeof(*arg1) * 256);
+                        strcpy(arg1, compile(Ast -> ast_function -> body));
+                        fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg1, arg1);
+                    }
             }
             break;
         case 2 :
         {
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
-            return reg;
+            return reglist[reg];
             break;
         }
         case 3 :
             break;
         case 4 :
+            (symbol_table + varind) -> is_static = 1;
+            char *str_name = malloc (sizeof(*str_name) * 256);
+            sprintf(str_name, "str%d", number_stings);
+            number_stings ++;
+            strcpy((symbol_table + varind) -> name, str_name);
+            strcpy((symbol_table + varind) -> string, Ast -> ast_string -> value);
+            (symbol_table + varind) -> type = 1;
+            varind ++;
+            return str_name;
             break;
         case 5 :
             break;
@@ -1280,6 +1301,11 @@ int compile (struct leaf *Ast)
             break;
     }
     return 0;
+}
+
+void epilog()
+{
+   
 }
 
 int main( int argc, char *argv[] ){
