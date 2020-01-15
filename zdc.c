@@ -1266,12 +1266,14 @@ struct reg compile (struct leaf *Ast)
                 default :
                     if (strcmp("print", Ast -> ast_function -> function) == 0)
                     {
-                        char *arg1= malloc (sizeof(*arg1) * 256);
                         struct reg arg = compile(Ast -> ast_function -> body);
-                        strcpy(arg1, arg.name);
-                        if (arg.type == 1)
+                        if (arg.type == 0)
                         {
-                            fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg1, arg1);
+                            fprintf(outfile, "mov rsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
+                        }
+                        else if (arg.type == 1)
+                        {
+                            fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
                         }
                     }
             }
@@ -1340,6 +1342,7 @@ void epilog()
                     (symbol_table + i) -> name);
         }
     }
+    fprintf(outfile, "\tint_to_str:\t db '%%d',0xA,10\n");
 }
 
 int main( int argc, char *argv[] ){
@@ -1348,7 +1351,7 @@ int main( int argc, char *argv[] ){
     }
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    fprintf(outfile, "SECTION .text\nglobal  _start\n _start:\n");
+    fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n");
     struct parse outfinal;
     symbol_table  = (struct variable*) malloc(20 * sizeof(struct variable));
     outfinal.size = 0;
@@ -1382,7 +1385,7 @@ int main( int argc, char *argv[] ){
     epilog();
     fclose(outfile);
     system("nasm -f elf64 ./out.asm");
-    system("ld ./out.o -o out");
+    system("gcc ./out.o -o out -no-pie");
     exit(0);
     return 0;
 }
