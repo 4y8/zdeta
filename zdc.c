@@ -1215,6 +1215,11 @@ void execute(struct leaf *Ast){
 }
 
 // Functions for the actual compiler
+struct reg
+{
+    char              *name;
+    enum variable_type type;
+};
 static char *reglist[4]= { "r8", "r9", "r10", "r11" }; //List of registers
 int registers[4] = {0, 0, 0, 0};
 int number_stings = 0;
@@ -1231,7 +1236,7 @@ void free_register (){
     return;
 }
 
-char *compile (struct leaf *Ast)
+struct reg compile (struct leaf *Ast)
 {
     switch (Ast -> type)
     {
@@ -1242,24 +1247,32 @@ char *compile (struct leaf *Ast)
             {
                 case '+' :
                 {
-                    char *arg1= malloc (sizeof(*arg1) * 256);
-                    strcpy(arg1, compile (Ast -> ast_function -> body));
+                    char *arg1 = malloc (sizeof(*arg1) * 256);
+                    strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
-                    char *arg2= malloc (sizeof(*arg2) * 256);
-                    strcpy(arg2, compile (Ast -> ast_function -> body));
+                    char *arg2 = malloc (sizeof(*arg2) * 256);
+                    strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
                     fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
                     free_register();
                     free(arg2);
-                    return arg1;
+                    struct reg outreg;
+                    outreg.type = 0;
+                    outreg.name = malloc (sizeof(outreg.name) * 256);
+                    strcpy (outreg.name, arg1);
+                    return outreg;
                 }
                 break;
                 default :
                     if (strcmp("print", Ast -> ast_function -> function) == 0)
                     {
                         char *arg1= malloc (sizeof(*arg1) * 256);
-                        strcpy(arg1, compile(Ast -> ast_function -> body));
-                        fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg1, arg1);
+                        struct reg arg = compile(Ast -> ast_function -> body);
+                        strcpy(arg1, arg.name);
+                        if (arg.type == 1)
+                        {
+                            fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg1, arg1);
+                        }
                     }
             }
             break;
@@ -1267,7 +1280,11 @@ char *compile (struct leaf *Ast)
         {
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
-            return reglist[reg];
+            struct reg outreg;
+            outreg.name = malloc(sizeof(outreg.name) * 256);
+            strcpy (outreg.name, reglist[reg]);
+            outreg.type = 0;
+            return outreg;
             break;
         }
         case 3 :
@@ -1281,7 +1298,11 @@ char *compile (struct leaf *Ast)
             strcpy((symbol_table + varind) -> string, Ast -> ast_string -> value);
             (symbol_table + varind) -> type = 1;
             varind ++;
-            return str_name;
+            struct reg outreg;
+            outreg.type = 1;
+            outreg.name = malloc (sizeof(outreg.name) * 256);
+            strcpy (outreg.name, str_name);
+            return outreg;
             break;
         case 5 :
             break;
@@ -1300,12 +1321,25 @@ char *compile (struct leaf *Ast)
         case 12 :
             break;
     }
-    return 0;
+    struct reg outreg;
+    return outreg;
 }
 
 void epilog()
 {
-   
+    fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
+    fprintf(outfile, "section .data\n");
+    for(int i = 0; i < varind ; i ++)
+    {
+        if ((symbol_table + i) -> is_static == 1)
+        {
+            fprintf(outfile, "\t%s:\t db '%s',10\n\t%s_len:\tequ $-%s\n",
+                    (symbol_table + i) -> name,
+                    (symbol_table + i) -> string,
+                    (symbol_table + i) -> name,
+                    (symbol_table + i) -> name);
+        }
+    }
 }
 
 int main( int argc, char *argv[] ){
@@ -1314,7 +1348,7 @@ int main( int argc, char *argv[] ){
     }
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    fprintf(outfile, "SECTION .text\nglobal  _start\n _start:\n\n");
+    fprintf(outfile, "SECTION .text\nglobal  _start\n _start:\n");
     struct parse outfinal;
     symbol_table  = (struct variable*) malloc(20 * sizeof(struct variable));
     outfinal.size = 0;
@@ -1345,6 +1379,10 @@ int main( int argc, char *argv[] ){
         freeall(outfinal.body);
         outfinal.body ++;
     }
+    epilog();
+    fclose(outfile);
+    system("nasm -f elf64 ./out.asm");
+    system("ld ./out.o -o out");
     exit(0);
     return 0;
 }
