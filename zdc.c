@@ -1245,6 +1245,7 @@ struct reg compile (struct leaf *Ast)
         case 1 :
             switch (Ast -> ast_function -> function[0])
             {
+                case '-' :
                 case '+' :
                 {
                     char *arg1 = malloc (sizeof(*arg1) * 256);
@@ -1253,7 +1254,14 @@ struct reg compile (struct leaf *Ast)
                     char *arg2 = malloc (sizeof(*arg2) * 256);
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
-                    fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
+                    if (Ast -> ast_function -> function[0] == '+')
+                    {
+                        fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
+                    }
+                    else
+                    {
+                        fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
+                    }
                     free_register();
                     free(arg2);
                     struct reg outreg;
@@ -1261,15 +1269,40 @@ struct reg compile (struct leaf *Ast)
                     outreg.name = malloc (sizeof(outreg.name) * 256);
                     strcpy (outreg.name, arg1);
                     return outreg;
+                    break;
                 }
-                break;
+                case '/' :
+                case '*' :
+                {
+                    fprintf(outfile, "\tmov\trax, %d\n", Ast -> ast_function -> body -> ast_number -> value);
+                    Ast -> ast_function -> body ++;
+                    char *arg1 = malloc (sizeof(*arg1) * 256);
+                    strcpy(arg1, compile (Ast -> ast_function -> body).name);
+                    Ast -> ast_function -> body --;
+                    if (Ast -> ast_function -> function[0] == '*')
+                    {
+                        fprintf(outfile, "\tmul\t%s\n", arg1);
+                    }
+                    else
+                    {
+                        fprintf(outfile, "\tmov\trdx,0\n\tdiv\t%s\n", arg1);
+                    }
+                    struct reg outreg;
+                    outreg.type = 0;
+                    outreg.name = malloc (sizeof(outreg.name) * 256);
+                    strcpy (outreg.name, "rax");
+                    free_register();
+                    return outreg;
+                    break;
+                }
                 default :
-                    if (strcmp("print", Ast -> ast_function -> function) == 0)
+                    if (!strcmp("print", Ast -> ast_function -> function))
                     {
                         struct reg arg = compile(Ast -> ast_function -> body);
                         if (arg.type == 0)
                         {
-                            fprintf(outfile, "mov rsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
+                            fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
+                            free_register();
                         }
                         else if (arg.type == 1)
                         {
