@@ -156,6 +156,7 @@ int operatorPrecedence (char operator[]){
     if (((strcmp(operator, "and")) == 0) ||
         ((strcmp(operator,  "or")) == 0) ||
         ((strcmp(operator,  "==")) == 0) ||
+        ((strcmp(operator,  "!=")) == 0) ||
         ((strcmp(operator,   "<")) == 0) ||
         ((strcmp(operator,   ">")) == 0) ||
         ((strcmp(operator,  ">=")) == 0) ||
@@ -246,13 +247,16 @@ struct lexline lexer(FILE *fp1, int min_indent){
             (tokens+k)->type = 0;
             d = fgetc(fp1);
             if ((c == '=') && (d == '=')){
-                strcpy((tokens + k)->value, "==");
+                strcpy((tokens + k) -> value, "==");
             }
             else if ((c == '<') && (d == '=')){
-                strcpy((tokens + k)->value, "<=");
+                strcpy((tokens + k) -> value, "<=");
             }
             else if ((c == '>') && (d == '=')){
-                strcpy((tokens + k)->value, ">=");
+                strcpy((tokens + k) -> value, ">=");
+            }
+            else if ((c == '!') && (d == '=')){
+                strcpy((tokens + k) -> value, "!=");
             }
             else if ((c == '/') && (d == '/')){
                 while (c != '\n'){
@@ -843,10 +847,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             size ++;
         }
     }
-    current_operator --;
+    if (current_operator > 0){
+        current_operator --;
+    }
     if(isinchars(opps, operators[current_operator].value[0])){
         while (current_operator >= 0) {
-            arg2 = (struct leaf *)malloc(sizeof(struct leaf));
+            arg2 = (struct leaf *) malloc(sizeof(struct leaf));
             copy_ast(Ast, arg2, aindex - 2, 0);
             (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
             (Ast + aindex - 2) -> ast_function->body = (struct leaf *) malloc(2 * sizeof(struct leaf));
@@ -1300,8 +1306,18 @@ struct reg compile (struct leaf *Ast)
                     free(arg1);
                     return outreg;
                     break;
+                case '!' :
+                case '=' :
+                case '>' :
                 case '<' :
                 {
+                    char *cmp = malloc (sizeof(*cmp) * 3);
+                    if ((Ast -> ast_function -> function[0] == '<') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "le");
+                    else if (Ast -> ast_function -> function[0] == '<') strcpy (cmp, "l");
+                    else if ((Ast -> ast_function -> function[0] == '>') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "ge");
+                    else if (Ast -> ast_function -> function[0] == '>') strcpy (cmp, "g");
+                    else if ((Ast -> ast_function -> function[0] == '=') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "e");
+                    else if ((Ast -> ast_function -> function[0] == '!') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "ne");
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
@@ -1309,9 +1325,10 @@ struct reg compile (struct leaf *Ast)
                     used_functions[1] = 1;
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
-                    fprintf(outfile,"\tcmp\t%s, %s\n\tjl\t_true%d\n\tmov\trax, 0\n\tjmp\t_after%d\n_true%d:\n\tmov\trax, 1\n_after%d:\n",
+                    fprintf(outfile,"\tcmp\t%s, %s\n\tj%s\t_true%d\n\tmov\trax, 0\n\tjmp\t_after%d\n_true%d:\n\tmov\trax, 1\n_after%d:\n",
                             arg1,
                             arg2,
+                            cmp,
                             number_cmp,
                             number_cmp,
                             number_cmp,
@@ -1385,6 +1402,7 @@ struct reg compile (struct leaf *Ast)
             }
             Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
             fprintf(outfile, "_aftif%d:\n",number_if);
+            free(condition);
             number_if ++;
             break;
         }
@@ -1467,8 +1485,6 @@ int main( int argc, char *argv[] ){
         freeall(outfinal.body);
         outfinal.body ++;
     }
-
-                    puts("aa");
     epilog();
     fclose(outfile);
     system("nasm -f elf64 ./out.asm");
