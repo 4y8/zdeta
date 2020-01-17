@@ -162,34 +162,33 @@ int operatorPrecedence (char operator[]){
         ((strcmp(operator,  ">=")) == 0) ||
         ((strcmp(operator,  "<=")) == 0) ||
         ((strcmp(operator,   "?")) == 0))
-    {precedence = 0;}
+        precedence = 0;
     else if (((strcmp(operator, "+")) == 0) ||
              ((strcmp(operator, "-")) == 0))
-    {precedence = 1;}
+        precedence = 1;
     else if (((strcmp(operator, "*")) == 0) ||
              ((strcmp(operator, "/")) == 0) ||
              ((strcmp(operator, "%")) == 0))
-    {precedence = 2;}
+        precedence = 2;
     else if (strcmp(operator, "^") == 0)
-    {precedence = 3;}
+        precedence = 3;
     else if (strcmp(operator, ".") == 0)
-    {precedence = 4;}
+        precedence = 4;
     else if (strcmp(operator, "=") == 0)
-    {precedence = -1;}
+        precedence = -1;
     return precedence;
 }
+
 int varindex (char var[]){
     int j = -1;
     for (int i = 0; i < 20; i++){
         if (strcmp((symbol_table + i) -> name, var) == 0){
+            return j;
             j = i;
         }
     }
-    if (j == -1){
-        puts("Error : using non declarated variable.");
-        exit(1);
-    }
-    return j;
+    puts("Error : using non declarated variable.");
+    exit(1);
 }
 // The Lexer
 struct lexline lexer(FILE *fp1, int min_indent){
@@ -285,8 +284,8 @@ struct lexline lexer(FILE *fp1, int min_indent){
                 fseek(fp1, j, SEEK_SET);
                 fgets(buffer, i + 1, fp1);
                 fseek(fp1, l, SEEK_SET);
-                (tokens + k)->type = 5;
-                strcpy((tokens + k) -> value, buffer);
+                (tokens + k) -> type = 5;
+                strcpy ((tokens + k) -> value, buffer);
             }
             else if (c == '#'){
                 c = fgetc(fp1);
@@ -363,11 +362,11 @@ void printAST(struct leaf *AST, int tabs){
             printf("function : %s \n", AST -> ast_function -> function);
             for (int i = 0; i < (AST -> ast_function ) -> body_length; i++){
                 tabulation(tabs + 1);
-                printf("argument n°%d : \n",i);
-                printAST(AST -> ast_function -> body, tabs + 2);
-                AST->ast_function -> body ++;
+                printf ("argument n°%d : \n",i);
+                printAST (AST -> ast_function -> body, tabs + 2);
+                AST -> ast_function -> body ++;
             }
-            AST->ast_function -> body -= (AST -> ast_function ) -> body_length;
+            AST -> ast_function -> body -= (AST -> ast_function ) -> body_length;
             break;
         case 2:
             printf("number : %i\n", AST -> ast_number-> value);
@@ -850,7 +849,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
     if (current_operator > 0){
         current_operator --;
     }
-    if(isinchars(opps, operators[current_operator].value[0])){
+    if (isinchars(opps, operators[current_operator].value[0])){
         while (current_operator >= 0) {
             arg2 = (struct leaf *) malloc(sizeof(struct leaf));
             copy_ast(Ast, arg2, aindex - 2, 0);
@@ -891,7 +890,7 @@ void check(struct leaf *Ast){
 }
 
 // Functions for the actual compiler
-struct reg
+struct reg // the structure of a register and its name
 {
     char              *name;
     enum variable_type type;
@@ -910,13 +909,15 @@ int new_register (void)
     return used_registers - 1;
 }
 
-void free_register (){
+void free_register (void){
     used_registers --;
     return;
 }
 
 struct reg compile (struct leaf *Ast)
 {
+    struct reg outreg;
+    outreg.name = malloc (sizeof(outreg.name) * 256);
     switch (Ast -> type)
     {
         case 0 :
@@ -943,9 +944,7 @@ struct reg compile (struct leaf *Ast)
                     }
                     free_register();
                     free(arg2);
-                    struct reg outreg;
                     outreg.type = 0;
-                    outreg.name = malloc (sizeof(outreg.name) * 256);
                     strcpy (outreg.name, arg1);
                     return outreg;
                     break;
@@ -965,9 +964,7 @@ struct reg compile (struct leaf *Ast)
                     {
                         fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg1);
                     }
-                    struct reg outreg;
                     outreg.type = 0;
-                    outreg.name = malloc (sizeof(outreg.name) * 256);
                     strcpy (outreg.name, "rax");
                     free_register();
                     free(arg1);
@@ -985,6 +982,10 @@ struct reg compile (struct leaf *Ast)
                     else if (Ast -> ast_function -> function[0] == '>') strcpy (cmp, "g");
                     else if ((Ast -> ast_function -> function[0] == '=') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "e");
                     else if ((Ast -> ast_function -> function[0] == '!') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "ne");
+                    else if (Ast -> ast_function -> function[0] == '=')
+                    {
+                        int index = varindex (Ast -> ast_function -> body -> ast_identifier -> name);
+                    }
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
@@ -1002,9 +1003,7 @@ struct reg compile (struct leaf *Ast)
                             number_cmp);
                     free_register();
                     free_register();
-                    struct reg outreg;
                     outreg.type = 2;
-                    outreg.name = malloc (sizeof(outreg.name) * 256);
                     strcpy (outreg.name, "rax");
                     free(arg1);
                     free(arg2);
@@ -1031,8 +1030,6 @@ struct reg compile (struct leaf *Ast)
         {
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
-            struct reg outreg;
-            outreg.name = malloc (sizeof(outreg.name) * 256);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = 0;
             return outreg;
@@ -1049,13 +1046,13 @@ struct reg compile (struct leaf *Ast)
             strcpy((symbol_table + varind) -> string, Ast -> ast_string -> value);
             (symbol_table + varind) -> type = 1;
             varind ++;
-            struct reg outreg;
             outreg.type = 1;
-            outreg.name = malloc (sizeof(outreg.name) * 256);
             strcpy (outreg.name, str_name);
             return outreg;
             break;
         case 5 :
+            strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
+            varind ++;
             break;
         case 6 :
         {
@@ -1086,7 +1083,7 @@ struct reg compile (struct leaf *Ast)
         case 12 :
             break;
     }
-    struct reg outreg;
+    outreg.type = -1;
     return outreg;
 }
 
