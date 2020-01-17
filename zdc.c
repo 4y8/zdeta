@@ -10,7 +10,7 @@ enum type { operator,
             identifier,
             number,
             keyword,
-            string};
+            string };
 // Define an enumeration to list all the possible instruction types
 enum instruction_type{ function,
                        function_call,
@@ -27,7 +27,8 @@ enum instruction_type{ function,
                        elifstatement};
 enum variable_type{ integer,
                     char_list,
-                    bool};
+                    bool,
+                    function_decl};
 // Define the structure for a token with a type and a name
 struct token {
     enum type type;
@@ -115,8 +116,9 @@ struct variable{
     enum variable_type type;
     int                is_static;
     union {
-        char string[50];
-        int  integer;
+        char        string[50];
+        int         integer;
+        struct leaf *ast;
     };
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
@@ -1029,6 +1031,7 @@ void execute(struct leaf *Ast){
                     if ((strcmp(Ast -> ast_function -> function, "<") == 0) ||
                         (strcmp(Ast -> ast_function -> function, ">") == 0)){
                         puts("Error : can't say if a string is superior or inferior to another string.");
+                        exit(1);
                     }
                     else if (strcmp(i, j) == 0){
                         Ast -> type = 3;
@@ -1043,7 +1046,7 @@ void execute(struct leaf *Ast){
                 }
                 else {
                     puts("Error : comparing values of different types.");
-                    exit(0);
+                    exit(1);
                 }
             }
             else if (strcmp(Ast -> ast_function -> function, "print") == 0){
@@ -1221,9 +1224,12 @@ struct reg
     enum variable_type type;
 };
 static char *reglist[4]= { "r8", "r9", "r10", "r11" }; //List of registers
-int registers[4] = {0, 0, 0, 0};
 int number_stings = 0;
 int used_registers = 0;
+int number_functions = 0;
+int used_functions[3] = {0, 0, 0};
+int number_cmp = 0;
+int number_if = 0;
 
 int new_register (void)
 {
@@ -1273,7 +1279,6 @@ struct reg compile (struct leaf *Ast)
                 }
                 case '/' :
                 case '*' :
-                {
                     fprintf(outfile, "\tmov\trax, %d\n", Ast -> ast_function -> body -> ast_number -> value);
                     Ast -> ast_function -> body ++;
                     char *arg1 = malloc (sizeof(*arg1) * 256);
@@ -1285,13 +1290,40 @@ struct reg compile (struct leaf *Ast)
                     }
                     else
                     {
-                        fprintf(outfile, "\tmov\trdx,0\n\tdiv\t%s\n", arg1);
+                        fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg1);
                     }
                     struct reg outreg;
                     outreg.type = 0;
                     outreg.name = malloc (sizeof(outreg.name) * 256);
                     strcpy (outreg.name, "rax");
                     free_register();
+                    free(arg1);
+                    return outreg;
+                    break;
+                case '<' :
+                {
+                    char *arg1 = malloc (sizeof(*arg1) * 256);
+                    strcpy(arg1, compile (Ast -> ast_function -> body).name);
+                    Ast -> ast_function -> body ++;
+                    char *arg2 = malloc (sizeof(*arg1) * 256);
+                    used_functions[1] = 1;
+                    strcpy(arg2, compile (Ast -> ast_function -> body).name);
+                    Ast -> ast_function -> body --;
+                    fprintf(outfile,"\tcmp\t%s, %s\n\tjl\t_true%d\n\tmov\trax, 0\n\tjmp\t_after%d\n_true%d:\n\tmov\trax, 1\n_after%d:\n",
+                            arg1,
+                            arg2,
+                            number_cmp,
+                            number_cmp,
+                            number_cmp,
+                            number_cmp);
+                    free_register();
+                    free_register();
+                    struct reg outreg;
+                    outreg.type = 2;
+                    outreg.name = malloc (sizeof(outreg.name) * 256);
+                    strcpy (outreg.name, "rax");
+                    free(arg1);
+                    free(arg2);
                     return outreg;
                     break;
                 }
@@ -1316,7 +1348,7 @@ struct reg compile (struct leaf *Ast)
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
             struct reg outreg;
-            outreg.name = malloc(sizeof(outreg.name) * 256);
+            outreg.name = malloc (sizeof(outreg.name) * 256);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = 0;
             return outreg;
@@ -1342,7 +1374,20 @@ struct reg compile (struct leaf *Ast)
         case 5 :
             break;
         case 6 :
+        {
+            char *condition = malloc (sizeof(*condition) * 256);
+            strcpy (condition, compile (Ast -> ast_if -> condition).name);
+            fprintf(outfile, "\tcmp\t%s, 0\n\tje\t_aftif%d\n", condition, number_if);
+            for (int i = 0; i < Ast -> ast_if -> body_length; i ++)
+            {
+                compile (Ast -> ast_if -> body);
+                Ast -> ast_if -> body ++;
+            }
+            Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+            fprintf(outfile, "_aftif%d:\n",number_if);
+            number_if ++;
             break;
+        }
         case 7 :
             break;
         case 8 :
@@ -1363,8 +1408,17 @@ struct reg compile (struct leaf *Ast)
 void epilog()
 {
     fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
+
+    for (int i = 0; i < varind ; i ++)
+    {
+        if ((symbol_table + i) -> type == 3)
+        {
+            fprintf(outfile, "_%s:\n", (symbol_table + i) -> name);
+            compile((symbol_table + i) -> ast);
+        }
+    }
     fprintf(outfile, "section .data\n");
-    for(int i = 0; i < varind ; i ++)
+    for (int i = 0; i < varind ; i ++)
     {
         if ((symbol_table + i) -> is_static == 1)
         {
@@ -1375,9 +1429,7 @@ void epilog()
                     (symbol_table + i) -> name);
         }
     }
-    fprintf(outfile, "\tint_to_str:\t db '%%d',0xA,10\n");
 }
-
 int main( int argc, char *argv[] ){
     if (argc != 2){
         exit(1);
@@ -1415,6 +1467,8 @@ int main( int argc, char *argv[] ){
         freeall(outfinal.body);
         outfinal.body ++;
     }
+
+                    puts("aa");
     epilog();
     fclose(outfile);
     system("nasm -f elf64 ./out.asm");
