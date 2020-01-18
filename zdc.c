@@ -180,11 +180,9 @@ int operatorPrecedence (char operator[]){
 }
 
 int varindex (char var[]){
-    int j = -1;
     for (int i = 0; i < 20; i++){
         if (strcmp((symbol_table + i) -> name, var) == 0){
-            return j;
-            j = i;
+            return i;
         }
     }
     puts("Error : using non declarated variable.");
@@ -985,6 +983,20 @@ struct reg compile (struct leaf *Ast)
                     else if (Ast -> ast_function -> function[0] == '=')
                     {
                         int index = varindex (Ast -> ast_function -> body -> ast_identifier -> name);
+                        Ast -> ast_function -> body ++;
+                        struct reg arg = compile (Ast -> ast_function -> body);
+                        char *arg2 = malloc (sizeof(*arg1) * 256);
+                        strcpy (arg2, arg.name);
+                        if ((symbol_table + index) -> type == -1)
+                        {
+                            (symbol_table + index) -> type = arg.type;
+                            (symbol_table + index) -> is_static = 0;
+                        }
+                        fprintf (outfile, "\tmov\t[%s], %s\n", (symbol_table + index) -> name, arg2);
+                        free(arg2);
+                        free_register();
+                        Ast -> ast_function -> body --;
+                        break;
                     }
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
@@ -1052,6 +1064,7 @@ struct reg compile (struct leaf *Ast)
             break;
         case 5 :
             strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
+            (symbol_table + varind) -> type = -1;
             varind ++;
             break;
         case 6 :
@@ -1077,7 +1090,15 @@ struct reg compile (struct leaf *Ast)
         case 9 :
             break;
         case 10 :
+        {
+            int reg = new_register();
+            fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
+            strcpy (outreg.name, reglist[reg]);
+            outreg.type = 0;
+            return outreg;
             break;
+            break;
+        }
         case 11:
             break;
         case 12 :
@@ -1090,7 +1111,6 @@ struct reg compile (struct leaf *Ast)
 void epilog()
 {
     fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
-
     for (int i = 0; i < varind ; i ++)
     {
         if ((symbol_table + i) -> type == 3)
@@ -1108,6 +1128,15 @@ void epilog()
                     (symbol_table + i) -> name,
                     (symbol_table + i) -> string,
                     (symbol_table + i) -> name,
+                    (symbol_table + i) -> name);
+        }
+    }
+    fprintf(outfile, "\tint_to_str:\t db '%%d',0xA,10\nsection .bss\n");
+    for (int i = 0; i < varind ; i ++)
+    {
+        if ((symbol_table + i) -> is_static == 0)
+        {
+            fprintf(outfile, "\t%s:\t resb 8\n",
                     (symbol_table + i) -> name);
         }
     }
