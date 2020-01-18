@@ -20,8 +20,6 @@ enum instruction_type{ function,
                        vardeclaration,
                        ifstatement,
                        whilestatement,
-                       returnstatement,
-                       AST,
                        zidentifier,
                        elsestatement,
                        elifstatement};
@@ -105,7 +103,8 @@ struct variable_declaration {
     char name[30];
 };
 struct identifier {
-    char name[30];
+    char         name[30];
+    struct leaf *body;
 };
 struct parse {
     struct leaf *body;
@@ -411,14 +410,9 @@ void printAST(struct leaf *AST, int tabs){
             AST -> ast_while -> body -= AST -> ast_while -> body_length;
             break;
         case 8:
-            break;
-        case 9:
-            printAST(AST -> ast, tabs + 1);
-            break;
-        case 10:
             printf("identifier : %s\n", AST -> ast_identifier -> name);
             break;
-        case 11:
+        case 9:
             printf("else : \n");
             tabulation(tabs + 1);
             printf("body : \n");
@@ -428,7 +422,7 @@ void printAST(struct leaf *AST, int tabs){
             }
             AST -> ast_else -> body -= AST -> ast_else -> body_length;
             break;
-        case 12:
+        case 10:
             printf("elif : \n");
             tabulation(tabs + 1);
             printf("condition : \n");
@@ -486,22 +480,16 @@ void freeall(struct leaf *AST){
             free(AST -> ast_while);
             break;
         case 8:
-            break;
-        case 9:
-            freeall(AST -> ast);
-            free(AST -> ast);
-            break;
-        case 10:
             free(AST -> ast_identifier);
             break;
-        case 11:
+        case 9:
             for (int i = 0; i < AST -> ast_else -> body_length; i++){
                 freeall(AST -> ast_else -> body);
                 AST -> ast_else -> body ++;
             }
             free(AST -> ast_else);
             break;
-        case 12:
+        case 10 :
             for (int i = 0; i < AST -> ast_elif -> body_length; i++){
                 freeall(AST -> ast_elif -> body);
                 AST -> ast_elif -> body ++;
@@ -573,16 +561,10 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             copy_ast(transmitter -> ast_while -> condition, receiver -> ast_while -> condition, 0, 0);
             break;
         case 8:
-            break;
-        case 9:
-            receiver -> ast = (struct leaf*) malloc(sizeof(struct leaf));
-            copy_ast(transmitter -> ast, transmitter -> ast, 0, 0);
-            break;
-        case 10:
             receiver -> ast_identifier = (struct identifier*) malloc(sizeof(struct identifier));
             strcpy(receiver -> ast_identifier -> name, transmitter -> ast_identifier -> name);
             break;
-        case 11:
+        case 9:
             receiver -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
             receiver -> ast_else -> body_length = transmitter -> ast_else -> body_length;
             receiver -> ast_else -> body = (struct leaf*) malloc((transmitter -> ast_else -> body_length) * sizeof(struct leaf));
@@ -591,7 +573,7 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
                 copy_ast(transmitter -> ast_else -> body, receiver -> ast_else -> body, i, i);
             }
             break;
-        case 12:
+        case 10:
             receiver -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
             receiver -> ast_elif -> body_length = transmitter -> ast_elif -> body_length;
             receiver -> ast_elif -> body = (struct leaf*) malloc((transmitter -> ast_elif -> body_length) * sizeof(struct leaf));
@@ -795,7 +777,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent");
                 lex.base_value = size + 1;
-                (Ast + aindex) -> type = 11;
+                (Ast + aindex) -> type = 10;
                 (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_else -> truth = 1;
                 for (int i = 0; i < argbody.size; i ++){
@@ -820,7 +802,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 }
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent");
-                (Ast + aindex) -> type = 12;
+                (Ast + aindex) -> type = 10;
                 (Ast + aindex) -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_elif -> condition, 0, 0);
                 (Ast + aindex) -> ast_elif -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
@@ -840,8 +822,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             }
             else if (strcmp(token.value, "print") == 0){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
-                lex.base_value = size + 1;
                 size ++;
+                lex.base_value = size;
                 arg2 = parsestatement(lex, "\n").body;
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(arg2, ((Ast + aindex) -> ast_function -> body), 0, 0);
@@ -856,11 +838,16 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
             size ++;
         }
         else if (token.type == 2){
-            (Ast + aindex) -> type = 10;
+            (Ast + aindex) -> type = 8;
             (Ast + aindex) -> ast_identifier = (struct identifier*) malloc(sizeof(struct identifier));
             strcpy((Ast + aindex) -> ast_identifier -> name, token.value);
             aindex ++;
             size ++;
+            if ((tokens + size) -> value[0] == '[')
+            {
+                lex.base_value = size + 1;
+                struct parse argbody = parsestatement (lex, "]");
+            }
         }
     }
     if (current_operator > 0){
@@ -891,14 +878,14 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
 void check(struct leaf *Ast){
     if (Ast -> type == 1){
         if (strcmp(Ast -> ast_function -> function, "=") == 0){
-            if (Ast -> ast_function -> body -> type != 10){
+            if (Ast -> ast_function -> body -> type != 8){
                 puts("Error : assigning a value to a non variable element.");
                 exit(1);
             }
         }
     }
-    else if (Ast -> type == 11) {
-        if (((Ast - 1) -> type != 6) && ((Ast - 1) -> type != 12)){
+    else if (Ast -> type == 9) {
+        if (((Ast - 1) -> type != 6) && ((Ast - 1) -> type != 10)){
             puts("Error : using an else without an if.");
             exit(1);
         }
@@ -912,6 +899,7 @@ struct reg // the structure of a register and its name
     char              *name;
     enum variable_type type;
 };
+
 static char *reglist[4]= { "r8", "r9", "r10", "r11" }; //List of registers
 int number_stings = 0;
 int used_registers = 0;
@@ -934,7 +922,7 @@ void free_register (void){
 struct reg compile (struct leaf *Ast)
 {
     struct reg outreg;
-    outreg.name = malloc (sizeof(outreg.name) * 256);
+    outreg.name = malloc (sizeof(*outreg.name) * 256);
     switch (Ast -> type)
     {
         case 0 :
@@ -964,7 +952,6 @@ struct reg compile (struct leaf *Ast)
                     outreg.type = 0;
                     strcpy (outreg.name, arg1);
                     return outreg;
-                    break;
                 }
                 case '/' :
                 case '*' :
@@ -1039,7 +1026,6 @@ struct reg compile (struct leaf *Ast)
                     free(arg1);
                     free(arg2);
                     return outreg;
-                    break;
                 }
                 default :
                     if (!strcmp("print", Ast -> ast_function -> function))
@@ -1064,7 +1050,6 @@ struct reg compile (struct leaf *Ast)
             strcpy (outreg.name, reglist[reg]);
             outreg.type = 0;
             return outreg;
-            break;
         }
         case 3 :
             break;
@@ -1080,7 +1065,6 @@ struct reg compile (struct leaf *Ast)
             outreg.type = 1;
             strcpy (outreg.name, str_name);
             return outreg;
-            break;
         case 5 :
             strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
             (symbol_table + varind) -> type = -1;
@@ -1088,20 +1072,24 @@ struct reg compile (struct leaf *Ast)
             break;
         case 6 :
         {
-            printAST(Ast, 0);
             char *condition = malloc (sizeof(*condition) * 256);
             strcpy (condition, compile (Ast -> ast_if -> condition).name);
             fprintf(outfile, "\tcmp\t%s, 0\n\tje\t_aft%d\n", condition, nubmer_structures);
             for (int i = 0; i < Ast -> ast_if -> body_length; i ++)
             {
-                compile (Ast -> ast_if -> body);
+                struct reg comp = compile (Ast -> ast_if -> body);
+                if (comp.type != -1)
+                {
+                    outreg.type = comp.type;
+                    strcpy (outreg.name, comp.name);
+                }
                 Ast -> ast_if -> body ++;
             }
             Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
             fprintf(outfile, "_aft%d:\n",nubmer_structures);
             free(condition);
             nubmer_structures ++;
-            break;
+            return outreg;
         }
         case 7 :
         {
@@ -1117,26 +1105,19 @@ struct reg compile (struct leaf *Ast)
             Ast -> ast_while -> body -= Ast -> ast_while -> body_length;
             fprintf(outfile, "\tjmp\t_start%d\n_aft%d:\n", nubmer_structures, nubmer_structures);
             nubmer_structures ++;
-            printAST(Ast, 0);
             break;
         }
         case 8 :
-            break;
-        case 9 :
-            break;
-        case 10 :
         {
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = 0;
             return outreg;
-            break;
-            break;
         }
-        case 11:
+        case 9 :
             break;
-        case 12 :
+        case 10 :
             break;
     }
     outreg.type = -1;
