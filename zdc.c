@@ -777,7 +777,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20]){
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent");
                 lex.base_value = size + 1;
-                (Ast + aindex) -> type = 10;
+                (Ast + aindex) -> type = 9;
                 (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_else -> truth = 1;
                 for (int i = 0; i < argbody.size; i ++){
@@ -1074,7 +1074,15 @@ struct reg compile (struct leaf *Ast)
         {
             char *condition = malloc (sizeof(*condition) * 256);
             strcpy (condition, compile (Ast -> ast_if -> condition).name);
-            fprintf(outfile, "\tcmp\t%s, 0\n\tje\t_aft%d\n", condition, nubmer_structures);
+            fprintf(outfile, "\tcmp\t%s, 0\n", condition);
+            if ((Ast + 1) -> type == 9)
+            {
+                fprintf(outfile, "\tje\t_else%d\n", nubmer_structures);
+            }
+            else
+            {
+                fprintf(outfile, "\tje\t_aft%d\n", nubmer_structures);
+            }
             for (int i = 0; i < Ast -> ast_if -> body_length; i ++)
             {
                 struct reg comp = compile (Ast -> ast_if -> body);
@@ -1086,6 +1094,23 @@ struct reg compile (struct leaf *Ast)
                 Ast -> ast_if -> body ++;
             }
             Ast -> ast_if -> body -= Ast -> ast_if -> body_length;
+            if ((Ast + 1) -> type == 9)
+            {
+                fprintf(outfile, "\n\tjmp\t_aft%d\n_else%d:\n", nubmer_structures, nubmer_structures);
+                Ast ++;
+                for (int i = 0; i < Ast -> ast_else -> body_length; i ++)
+                {
+                    struct reg comp = compile (Ast -> ast_else -> body);
+                    if (comp.type != -1)
+                    {
+                        outreg.type = comp.type;
+                        strcpy (outreg.name, comp.name);
+                    }
+                    Ast -> ast_else -> body ++;
+                }
+                Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
+                Ast --;
+            }
             fprintf(outfile, "_aft%d:\n",nubmer_structures);
             free(condition);
             nubmer_structures ++;
@@ -1109,10 +1134,15 @@ struct reg compile (struct leaf *Ast)
         }
         case 8 :
         {
+            if ((symbol_table + varindex(Ast -> ast_identifier -> name)) -> type == -1)
+            {
+                puts("Error : used of non initialized variable.");
+                exit(1);
+            }
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
             strcpy (outreg.name, reglist[reg]);
-            outreg.type = 0;
+            outreg.type = (symbol_table + varindex(Ast -> ast_identifier -> name)) -> type;
             return outreg;
         }
         case 9 :
