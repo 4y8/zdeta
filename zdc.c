@@ -111,7 +111,8 @@ struct identifier {
 };
 struct parse {
     struct leaf *body;
-    int size;
+    int          size;
+    int          used_tokens;
 };
 struct variable{
     char               name[20];
@@ -125,7 +126,7 @@ struct variable{
     };
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
-char symbols[12] = {'(',')','{','}',';','"','[',']',',','#','\n', ':'}; // List of all symbols
+char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
 char *keywords[10] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "swap", "match", "iter"}; // List of keybords
 int linum = 1; // The variable to keep track of the current line
@@ -147,7 +148,7 @@ int iskeyword(char in[]){
 }
 // A function to check if a char is in a char list
 int isinchars(char in[], char check){
-    for(int i = 0; i < 12; i++){
+    for(int i = 0; i < 11; i++){
         if (in[i] == check){
             return 1;
         }
@@ -574,6 +575,7 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             for (int i = 0; i < (transmitter -> ast_function -> body_length); i++){
                 copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, i, i);
             }
+            receiver -> length = 1;
             break;
         case 2:
             receiver -> ast_number = (struct number*) malloc(transmitter -> length * sizeof(struct number));
@@ -670,6 +672,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         output.size = -1;
         return(output);
     }
+
     struct leaf *arg2;
     struct leaf *Ast;
     struct token *tokens = lex.tokens;
@@ -786,7 +789,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             {
                 size ++;
             }
-            else if (token.value[0] == '}')
+            else if ((token.value[0] == '}') || (token.value[0] == ')'))
             {
                     size ++;
             }
@@ -969,19 +972,16 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             (Ast + aindex) -> ast_identifier = (struct identifier*) malloc (sizeof(struct identifier));
             strcpy((Ast + aindex) -> ast_identifier -> name, token.value);
             size ++;
-            if ((tokens + size) -> value[0] == '[')
+            if (!strcmp((tokens + size) -> value, "::"))
             {
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement (lex, "]", -1);
+                struct parse argbody = parsestatement (lex, "", 1);
                 (Ast + aindex) -> ast_identifier -> index = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_identifier -> has_index = 1;
                 copy_ast(argbody.body, (Ast + aindex) -> ast_identifier -> index, 0, 0);
-                while (((tokens + size) -> value)[0] != ']'){
-                    size ++;
-                }
                 freeall(argbody.body);
                 free(argbody.body);
-                size ++;
+                size += 1 + argbody.used_tokens;
             }
             else
             {
@@ -1006,6 +1006,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             copy_ast(arg2, (Ast + aindex - 2) -> ast_function->body, 0, 0);
             copy_ast(Ast, (Ast + aindex - 2) -> ast_function->body, aindex - 1, 1);
             ((Ast + aindex - 2) -> ast_function) -> body_length = 2;
+            (Ast + aindex - 2) -> length = 0;
             freeall(Ast + aindex - 1);
             freeall(arg2);
             free(arg2);
@@ -1016,6 +1017,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     struct parse output;
     output.body = Ast;
     output.size = aindex;
+    output.used_tokens = size - lex.base_value;
     return(output);
 }
 
@@ -1436,10 +1438,6 @@ int main ( int argc, char *argv[] ){
         free(out.body);
     }
     fclose(fp1);
-    for (int i = 0; i < outfinal.size; i++){
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
