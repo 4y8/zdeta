@@ -863,10 +863,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 free(argbody.body);
                 (Ast + aindex) -> ast_if -> body -= argbody.size;
                 aindex ++;
-                while (strcmp("switch_indent", (tokens + size) -> value))
-                {
+                int i = 0;
+                while (i <= argbody.used_structures){
+                    if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
                 }
+                size --;
                 freeall(argcondition.body);
                 free(argcondition.body);
             }
@@ -897,12 +899,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_while -> body -= argbody.size;
                 aindex ++;
                 int i = 0;
-                printf("%d\n", argbody.used_structures);
                 while (i <= argbody.used_structures){
-                    if (!strcmp("switch_indent", (tokens + size) -> value))
-                    {
-                        i ++;
-                    }
+                    if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
                 }
                 size --;
@@ -1162,6 +1160,17 @@ struct reg compile (struct leaf *Ast)
                         if (Ast -> ast_function -> body -> length == 1)
                         {
                             struct reg arg = compile (Ast -> ast_function -> body);
+                            char *index_of_var = malloc (sizeof(*index_of_var) * 256);
+                            if (index_of_identifier == 1)
+                            {
+                                Ast -> ast_function -> body --;
+                                strcpy(index_of_var, compile(Ast -> ast_function -> body -> ast_identifier -> index).name);
+                                Ast -> ast_function -> body ++;
+                            }
+                            else
+                            {
+                                strcpy(index_of_var, "0");
+                            }
                             if ((symbol_table + index) -> type == -1)
                             {
                                 (symbol_table + index) -> array_length = 0;
@@ -1174,13 +1183,13 @@ struct reg compile (struct leaf *Ast)
                                 puts("Error : assigning a single value to an array.");
                                 exit(1);
                             }
-                            fprintf (outfile, "\tmov\t[%s], %s\n", (symbol_table + index) -> name, arg.name);
+                            fprintf (outfile, "\tmov\t[%s + 0 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
+                            free(index_of_var);
                             free(arg.name);
                             free_register();
                         }
                         else
                         {
-                            printf("%d\n", Ast -> ast_function -> body -> length);
                             for (int i = 0; i < Ast -> ast_function -> body -> length; i ++)
                             {
                                 char *element = compile(Ast -> ast_function -> body).name;
@@ -1463,11 +1472,6 @@ int main ( int argc, char *argv[] ){
         free(out.body);
     }
     fclose(fp1);
-    for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
