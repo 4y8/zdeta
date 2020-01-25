@@ -59,30 +59,30 @@ struct leaf {
     int length;
 };
 // Define the structures for the different AST node types
-struct function{
+struct function {
     char         name[50];
     int          body_length;
     int          argnumber;
     char         arguments[5][10];
     struct leaf *body;
 };
-struct whilestatement{
+struct whilestatement {
     int          body_length;
     struct leaf *condition;
     struct leaf *body;
 };
-struct ifstatement{
+struct ifstatement {
     int          body_length;
     struct leaf *condition;
     struct leaf *body;
 };
-struct elifstatement{
+struct elifstatement {
     int          truth;
     int          body_length;
     struct leaf *condition;
     struct leaf *body;
 };
-struct elsestatement{
+struct elsestatement {
     int          truth;
     int          body_length;
     struct leaf *body;
@@ -92,7 +92,7 @@ struct functioncall{
     char         function[15];
     struct leaf *body;
 };
-struct number{
+struct number {
     int value;
 };
 struct bool {
@@ -132,7 +132,6 @@ char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
 char *keywords[10] = {"let", "fun", "print", "while", "if", "else",
                   "elif", "swap", "match", "iter"}; // List of keybords
-int linum = 1; // The variable to keep track of the current line
 FILE *fp1;
 FILE *outfile;
 struct variable *symbol_table;
@@ -244,7 +243,7 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             k++;
         }
         else if (isinchars(opps, c)){
-            (tokens+k)->type = 0;
+            (tokens + k) -> type = 0;
             d = fgetc(fp1);
             if ((c == '=') && (d == '=')){
                 strcpy((tokens + k) -> value, "==");
@@ -255,6 +254,9 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             else if ((c == '>') && (d == '=')){
                 strcpy((tokens + k) -> value, ">=");
             }
+            else if ((c == '=') && (d == '>')){
+                strcpy((tokens + k) -> value, "=>");
+            }
             else if ((c == '!') && (d == '=')){
                 strcpy((tokens + k) -> value, "!=");
             }
@@ -262,7 +264,6 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
                 while (c != '\n'){
                     c = fgetc(fp1);
                 }
-                linum ++;
                 k --;
             }
             else{
@@ -291,9 +292,6 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             else if (c == '#'){
                 c = fgetc(fp1);
                 while (c != '#'){
-                    if (c == '\n'){
-                        linum ++;
-                    }
                     c = fgetc(fp1);
                 }
                 k --;
@@ -792,11 +790,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     size ++;
                 }
             }
-            else if (!strcmp("switch_indent", token.value))
-            {
-                size ++;
-            }
-            else if ((token.value[0] == '}') || (token.value[0] == ')'))
+            else if ((token.value[0] == '}') || (token.value[0] == ')') || !strcmp("switch_indent", token.value))
             {
                     size ++;
             }
@@ -832,12 +826,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         }
         else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
-                if ((((tokens + size + 2) -> value) [0] != '=') && (((tokens + size + 2) -> value) [0] != '[')){
+                int is_function = 0;
+                int size_before = size;
+                while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) {
+                    if (!strcmp((tokens + size) -> value, "=>")) is_function = 1; // If we encouter the => token it means that we're declaring a function
+                    size ++;
                 }
-                else {
+                size = size_before; // Set back the position to the one we were before
+                if (is_function == 0){
                     (Ast + aindex) -> type = 5;
-                    (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *)malloc(sizeof(struct variable_declaration));
-                    strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value);
+                    (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *) malloc(sizeof(struct variable_declaration));
+                    strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value); // Name the variable after the next token
                 }
                 aindex ++;
             }
@@ -845,9 +844,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
                 lex.base_value = size + 1;
                 struct parse argcondition = parsestatement(lex, "\n", -1);
-                while(((tokens + size) -> value)[0] != '\n' ){
-                    size ++;
-                }
+                while(((tokens + size) -> value)[0] != '\n') size ++;
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent", -1);
                 (Ast + aindex) -> type = 6;
@@ -882,10 +879,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 size ++;
                 lex.base_value = size;
                 struct parse argcondition = parsestatement(lex, "\n", -1);
-                while(((tokens + size) -> value)[0] != '\n' )
-                {
-                    size ++;
-                }
+                while(((tokens + size) -> value)[0] != '\n' ) size ++;
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent", -1);
                 (Ast + aindex) -> type = 7;
@@ -916,9 +910,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             }
             else if (strcmp(token.value, "else") == 0){
                 (Ast + aindex) -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
-                while(((tokens + size) -> value)[0] != '\n' ){
-                    size ++;
-                }
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent", -1);
                 (Ast + aindex) -> type = 9;
@@ -935,10 +926,15 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 argbody.body -= argbody.size;
                 free(argbody.body);
                 (Ast + aindex) -> ast_else -> body -= argbody.size;
-                aindex ++;
-                while (strcmp("switch_indent", (tokens + size) -> value)){
+                int i = 0;
+                used_structures = argbody.used_structures;
+                while (i <= argbody.used_structures)
+                {
+                    if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
                 }
+                size --;
+                aindex ++;
             }
             else if (strcmp(token.value, "elif") == 0){
                 (Ast + aindex) -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
@@ -964,9 +960,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_elif -> body -= argbody.size;
                 aindex ++;
-                while (strcmp("switch_indent", (tokens + size) -> value)){
-                    size ++;
-                }
+                while (strcmp("switch_indent", (tokens + size) -> value)) size ++;
                 freeall(argcondition.body);
                 free(argcondition.body);
             }
@@ -1007,10 +1001,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 free(argbody.body);
                 size += 1 + argbody.used_tokens;
             }
-            else
-            {
-                (Ast + aindex) -> ast_identifier -> has_index = 0;
-            }
+            else (Ast + aindex) -> ast_identifier -> has_index = 0;
             aindex ++;
         }
     }
@@ -1109,14 +1100,8 @@ struct reg compile (struct leaf *Ast)
                     char *arg2 = malloc (sizeof(*arg2) * 256);
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
-                    if (Ast -> ast_function -> function[0] == '+')
-                    {
-                        fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
-                    }
-                    else
-                    {
-                        fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
-                    }
+                    if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
+                    else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
                     free_register();
                     free(arg2);
                     outreg.type = 0;
@@ -1130,14 +1115,8 @@ struct reg compile (struct leaf *Ast)
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
-                    if (Ast -> ast_function -> function[0] == '*')
-                    {
-                        fprintf(outfile, "\tmul\t%s\n", arg1);
-                    }
-                    else
-                    {
-                        fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg1);
-                    }
+                    if (Ast -> ast_function -> function[0] == '*') fprintf(outfile, "\tmul\t%s\n", arg1);
+                    else fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg1);
                     outreg.type = 0;
                     strcpy (outreg.name, "rax");
                     free_register();
@@ -1171,10 +1150,7 @@ struct reg compile (struct leaf *Ast)
                                 strcpy(index_of_var, compile(Ast -> ast_function -> body -> ast_identifier -> index).name);
                                 Ast -> ast_function -> body ++;
                             }
-                            else
-                            {
-                                strcpy(index_of_var, "0");
-                            }
+                            else strcpy(index_of_var, "0");
                             if ((symbol_table + index) -> type == -1)
                             {
                                 (symbol_table + index) -> array_length = 0;
@@ -1250,10 +1226,7 @@ struct reg compile (struct leaf *Ast)
                             {
                                 (symbol_table + varind) -> is_static = 1;
                                 strcat((symbol_table + varind) -> string, "[%d,");
-                                for (int i = 0; i < Ast -> ast_function -> body -> length - 2; i++)
-                                {
-                                    strcat((symbol_table + varind) -> string, "%d,");
-                                }
+                                for (int i = 0; i < Ast -> ast_function -> body -> length - 2; i++) strcat((symbol_table + varind) -> string, "%d,");
                                 strcat((symbol_table + varind) -> string, "%d]");
                                 varind ++;
                             }
@@ -1280,16 +1253,10 @@ struct reg compile (struct leaf *Ast)
                                 number_array ++;
                                 varind ++;
                             }
-                            else
-                            {
-                                fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
-                            }
+                            else fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
                             free_register();
                         }
-                        else if (arg.type == 1)
-                        {
-                            fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
-                        }
+                        else if (arg.type == 1) fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
                         free(arg.name);
                     }
             }
@@ -1328,14 +1295,8 @@ struct reg compile (struct leaf *Ast)
             struct reg condition = compile (Ast -> ast_if -> condition);
             fprintf(outfile, "\tcmp\t%s, 0\n", condition.name);
             free(condition.name);
-            if ((Ast + 1) -> type == 9)
-            {
-                fprintf(outfile, "\tje\t_else%d\n", nubmer_structures);
-            }
-            else
-            {
-                fprintf(outfile, "\tje\t_aft%d\n", nubmer_structures);
-            }
+            if ((Ast + 1) -> type == 9) fprintf(outfile, "\tje\t_else%d\n", nubmer_structures);
+            else fprintf(outfile, "\tje\t_aft%d\n", nubmer_structures);
             for (int i = 0; i < Ast -> ast_if -> body_length; i ++)
             {
                 struct reg comp = compile (Ast -> ast_if -> body);
@@ -1367,10 +1328,7 @@ struct reg compile (struct leaf *Ast)
                 }
                 Ast -> ast_else -> body -= Ast -> ast_else -> body_length;
                 Ast --;
-                if (outreg.type != -1)
-                {
-                    fprintf(outfile, "\tmov\t%s, %s\n", outreg.name, tmpreg.name);
-                }
+                if (outreg.type != -1) fprintf(outfile, "\tmov\t%s, %s\n", outreg.name, tmpreg.name);
                 free(tmpreg.name);
             }
             fprintf(outfile, "_aft%d:\n",nubmer_structures);
@@ -1409,10 +1367,7 @@ struct reg compile (struct leaf *Ast)
                 free_register();
                 free(index);
             }
-            else
-            {
-                fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
-            }
+            else fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = (symbol_table + varindex(Ast -> ast_identifier -> name)) -> type;
             return outreg;
@@ -1458,8 +1413,8 @@ void epilog()
         if ((symbol_table + i) -> is_static == 1)
         {
             char *end = malloc(10 * sizeof(end));
-            if((symbol_table + i) -> At_the_end_0xA == 1) strcpy(end, "0xA,0");
-            else strcpy(end, "10");;
+            if ((symbol_table + i) -> At_the_end_0xA == 1) strcpy(end, "0xA,0");
+            else strcpy(end, "10");
             fprintf(outfile, "\t%s:\t db '%s', %s\n\t%s_len:\tequ $-%s\n",
                     (symbol_table + i) -> name,
                     (symbol_table + i) -> string,
@@ -1474,16 +1429,10 @@ void epilog()
     {
         if ((symbol_table + i) -> is_static == 0)
         {
-            if ((symbol_table + i) -> array_length == 0)
-            {
-                fprintf(outfile, "\t%s:\t resq 1\n",
-                        (symbol_table + i) -> name);
-            }
-            else if ((symbol_table + i) -> array_length != 0)
-            {
-                fprintf(outfile, "\t%s:\t resq %d\n",
-                        (symbol_table + i) -> name, (symbol_table + i) -> array_length);
-            }
+            if ((symbol_table + i) -> array_length == 0) fprintf(outfile, "\t%s:\t resq 1\n",
+                                                                 (symbol_table + i) -> name);
+            else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
+                                                                      (symbol_table + i) -> name, (symbol_table + i) -> array_length);
         }
     }
 }
