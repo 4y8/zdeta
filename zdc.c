@@ -56,7 +56,7 @@ struct leaf {
         struct elsestatement        *ast_else;
         struct elifstatement        *ast_elif;
     };
-    int length;
+    int length; // Useful for the arrays
 };
 // Define the structures for the different AST node types
 struct function {
@@ -363,8 +363,8 @@ void printAST(struct leaf *AST, int tabs){
     tabulation(tabs);
     switch(AST -> type){
         case 0:
-            printf("declare function : %s \n", AST -> ast_functiondeclaration -> name);
-            tabulation(tabs + 1);
+            printf ("declare function : %s \n", AST -> ast_functiondeclaration -> name);
+            printf ("arguments : ");
             for (int i = 0; i < AST -> ast_functiondeclaration -> argnumber; i ++) {
                 printf("%s ", AST -> ast_functiondeclaration -> arguments[i]);
             }
@@ -478,6 +478,7 @@ void freeall(struct leaf *AST){
                 freeall(AST -> ast_functiondeclaration -> body);
                 AST -> ast_functiondeclaration -> body ++;
             }
+            free(AST -> ast_functiondeclaration);
             break;
         case 1:
             for (int i = 0; i < AST -> ast_function -> body_length; i++){
@@ -560,6 +561,7 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
     switch(transmitter -> type){
         case 0:
             receiver -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
+            receiver -> ast_functiondeclaration -> body = (struct leaf*) malloc((transmitter -> ast_functiondeclaration -> body_length) * sizeof(struct leaf));
             strcpy(receiver -> ast_functiondeclaration -> name, transmitter -> ast_functiondeclaration -> name);
             receiver -> ast_functiondeclaration -> argnumber = transmitter -> ast_functiondeclaration -> argnumber;
             receiver -> ast_functiondeclaration -> body_length = transmitter -> ast_functiondeclaration -> body_length;
@@ -569,6 +571,7 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             for (int i = 0; i < (transmitter -> ast_functiondeclaration -> body_length); i++){
                 copy_ast(transmitter -> ast_functiondeclaration -> body, receiver -> ast_functiondeclaration -> body, i, i);
             }
+            receiver -> length = 1;
             break;
         case 1:
             receiver -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
@@ -774,9 +777,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             }
             else if (token.value[0] == '{')
             {
-                while(((tokens + size) -> value)[0] != '\n' ){
-                    size ++;
-                }
+                while(((tokens + size) -> value)[0] != '\n' ) size ++;
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement(lex, "}", -1);
                 (Ast + aindex) -> type = 11;
@@ -786,24 +787,16 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 }
                 (Ast + aindex) -> ast -> length = argbody.size;
                 aindex ++;
-                while ((strcmp("}", (tokens + size) -> value)) && (size <= lex.size)){
-                    size ++;
-                }
+                while ((strcmp("}", (tokens + size) -> value)) && (size <= lex.size)) size ++;
             }
-            else if ((token.value[0] == '}') || (token.value[0] == ')') || !strcmp("switch_indent", token.value))
-            {
-                    size ++;
-            }
+            else if ((token.value[0] == '}') || (token.value[0] == ')') || !strcmp("switch_indent", token.value)) size ++;
             else if (token.value[0] == '[')
             {
                 size ++;
                 int arraysize = 0;
                 while ((tokens + size) -> value[0] != ']')
                 {
-                    if ((tokens + size) -> type == 3)
-                    {
-                        arraysize ++;
-                    }
+                    if ((tokens + size) -> type == 3) arraysize ++;
                     size ++;
                 }
                 size -= arraysize;
@@ -828,15 +821,58 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             if (strcmp(token.value, "let") == 0){
                 int is_function = 0;
                 int size_before = size;
-                while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) {
-                    if (!strcmp((tokens + size) -> value, "=>")) is_function = 1; // If we encouter the => token it means that we're declaring a function
+                while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) { // We first search if we have a "=>" token on the line
+                    if (!strcmp((tokens + size) -> value, "=>"))
+                    {
+                        is_function = size; // If we encouter the "=>" token it means that we're declaring a function, so we store its position
+                        break;
+                    }
                     size ++;
                 }
                 size = size_before; // Set back the position to the one we were before
-                if (is_function == 0){
+                if (is_function == 0)
+                {
                     (Ast + aindex) -> type = 5;
                     (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *) malloc(sizeof(struct variable_declaration));
                     strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value); // Name the variable after the next token
+                }
+                else
+                {
+                    (Ast + aindex) -> type = 0;
+                    size ++;
+                    (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
+                    strcpy((Ast + aindex) -> ast_functiondeclaration -> name, (tokens + size) -> value); // Name the function after the token before let
+                    (Ast + aindex) -> ast_functiondeclaration -> argnumber = 0;
+                    size ++;
+                    while (size < is_function) // Use all the tokens between the function name and the => as arguments
+                    {
+                        strcpy((Ast + aindex) -> ast_functiondeclaration -> arguments[(Ast + aindex) -> ast_functiondeclaration -> argnumber],
+                               (tokens + size) -> value);
+                        (Ast + aindex) -> ast_functiondeclaration -> argnumber ++;
+                        size ++;
+                    }
+                    lex.base_value = is_function + 2;
+                    struct parse argbody = parsestatement(lex, "switch_indent", -1);
+                    (Ast + aindex) -> ast_functiondeclaration -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                    for (int i = 0; i < argbody.size; i ++) // Copy all ASTs to the function body
+                    {
+                        copy_ast(argbody.body, (Ast + aindex) -> ast_functiondeclaration -> body, 0, 0);
+                        (Ast + aindex) -> ast_functiondeclaration -> body ++;
+                        freeall(argbody.body);
+                        argbody.body ++;
+                    }
+                    (Ast + aindex) -> ast_functiondeclaration -> body_length = argbody.size;
+                    argbody.body -= argbody.size;
+                    free(argbody.body);
+                    (Ast + aindex) -> ast_functiondeclaration -> body -= argbody.size;
+                    int i = 0;
+                    used_structures += argbody.used_structures;
+                    while (i <= argbody.used_structures)
+                    {
+                        if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
+                        size ++;
+                    } // Move at the end the block
+                    size --;
                 }
                 aindex ++;
             }
@@ -1087,6 +1123,7 @@ struct reg compile (struct leaf *Ast)
     switch (Ast -> type)
     {
         case 0 :
+            printAST(Ast, 0);
             break;
         case 1 :
             switch (Ast -> ast_function -> function[0])
@@ -1439,10 +1476,7 @@ void epilog()
 
 int main ( int argc, char *argv[] )
 {
-    if (argc != 2)
-    {
-        exit(1);
-    }
+    if (argc != 2) exit(1);
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n");
@@ -1462,9 +1496,7 @@ int main ( int argc, char *argv[] )
             out.body ++;
         }
         free(tokens);
-        if (out.size == -1){
-            break;
-        }
+        if (out.size == -1) break;
         out.body -= out.size;
         free(out.body);
     }
