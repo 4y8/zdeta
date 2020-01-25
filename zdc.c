@@ -1183,7 +1183,7 @@ struct reg compile (struct leaf *Ast)
                                 puts("Error : assigning a single value to an array.");
                                 exit(1);
                             }
-                            fprintf (outfile, "\tmov\t[%s + 0 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
+                            fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
                             free(index_of_var);
                             free(arg.name);
                             free_register();
