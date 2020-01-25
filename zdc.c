@@ -120,8 +120,9 @@ struct variable{
     enum variable_type type;
     int                is_static;
     int                array_length;
-    union {
-        char        string[50];
+    union
+    {
+        char        string[100];
         int         integer;
         struct leaf *ast;
     };
@@ -237,8 +238,8 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            (tokens+k) -> type = 3;
-            strcpy((tokens+k)->value, buffer);
+            (tokens + k) -> type = 3;
+            strcpy((tokens + k) -> value, buffer);
             k++;
         }
         else if (isinchars(opps, c)){
@@ -864,7 +865,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_if -> body -= argbody.size;
                 aindex ++;
                 int i = 0;
-                while (i <= argbody.used_structures){
+                used_structures = argbody.used_structures;
+                while (i <= argbody.used_structures)
+                {
                     if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
                 }
@@ -878,7 +881,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 size ++;
                 lex.base_value = size;
                 struct parse argcondition = parsestatement(lex, "\n", -1);
-                while(((tokens + size) -> value)[0] != '\n' ){
+                while(((tokens + size) -> value)[0] != '\n' )
+                {
                     size ++;
                 }
                 lex.base_value = size + 1;
@@ -899,6 +903,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_while -> body -= argbody.size;
                 aindex ++;
                 int i = 0;
+                used_structures = argbody.used_structures;
                 while (i <= argbody.used_structures){
                     if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
@@ -1066,12 +1071,9 @@ struct reg // the structure of a register and its name
 };
 
 static char *reglist[4] = { "r8", "r9", "r10", "r11" }; //List of registers
-int number_stings = 0;
-int used_registers = 0;
-int number_functions = 0;
+int number_stings = 0, used_registers = 0, number_functions = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[3] = {0, 0, 0};
-int number_cmp = 0;
-int nubmer_structures = 0;
+static char *arg_func_list[6] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
 int new_register (void)
 {
@@ -1242,7 +1244,43 @@ struct reg compile (struct leaf *Ast)
                         struct reg arg = compile(Ast -> ast_function -> body);
                         if (arg.type == 0)
                         {
-                            fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
+                            if ((Ast -> ast_function -> body -> type == 2) && (Ast -> ast_function -> body -> length != 1))
+                            {
+                                (symbol_table + varind) -> is_static = 1;
+                                strcat((symbol_table + varind) -> string, "[%d,");
+                                for (int i = 0; i < Ast -> ast_function -> body -> length - 2; i++)
+                                {
+                                    strcat((symbol_table + varind) -> string, "%d,");
+                                }
+                                strcat((symbol_table + varind) -> string, "%d]");
+                                varind ++;
+                            }
+                            else if ((Ast -> ast_function -> body -> type == 8) &&
+                                     ((symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length != 1))
+                            {
+                                (symbol_table + varind) -> is_static = 1;
+                                sprintf((symbol_table + varind) -> name, "array_%d", number_array);
+                                strcat((symbol_table + varind) -> string, "[%d, ");
+                                for (int i = 0; i < (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length - 2; i++)
+                                {
+                                    strcat((symbol_table + varind) -> string, "%d, ");
+                                }
+                                strcat((symbol_table + varind) -> string, "%d]");
+                                for (int i = 0; i < (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length; i++)
+                                {
+                                    fprintf(outfile, "\tmov\t%s, [%s + 8 * %d]\n",
+                                            arg_func_list[i + 1],
+                                            (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> name,
+                                            i);
+                                }
+                                fprintf(outfile, "\tmov\trdi, array_%d\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", number_array);
+                                number_array ++;
+                                varind ++;
+                            }
+                            else
+                            {
+                                fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
+                            }
                             free_register();
                         }
                         else if (arg.type == 1)
@@ -1441,7 +1479,8 @@ void epilog()
     }
 }
 
-int main ( int argc, char *argv[] ){
+int main ( int argc, char *argv[] )
+{
     if (argc != 2)
     {
         exit(1);
@@ -1472,6 +1511,11 @@ int main ( int argc, char *argv[] ){
         free(out.body);
     }
     fclose(fp1);
+    for (int i = 0; i < outfinal.size; i++){
+        printAST(outfinal.body, 0);
+        outfinal.body ++;
+    }
+    outfinal.body -= outfinal.size;
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
         outfinal.body ++;
