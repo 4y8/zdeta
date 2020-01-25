@@ -120,6 +120,7 @@ struct variable{
     enum variable_type type;
     int                is_static;
     int                array_length;
+    int                At_the_end_0xA;
     union
     {
         char        string[100];
@@ -904,7 +905,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 aindex ++;
                 int i = 0;
                 used_structures = argbody.used_structures;
-                while (i <= argbody.used_structures){
+                while (i <= argbody.used_structures)
+                {
                     if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
                 }
@@ -978,7 +980,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> type = 1;
                 ((Ast + aindex) -> ast_function ) -> body_length = 1;
                 strcpy((Ast + aindex) -> ast_function -> function, "print");
-                while (((tokens + size) -> value)[0] != '\n'){
+                while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))){
                     size ++;
                 }
                 freeall(arg2);
@@ -1271,8 +1273,9 @@ struct reg compile (struct leaf *Ast)
                                     fprintf(outfile, "\tmov\t%s, [%s + 8 * %d]\n",
                                             arg_func_list[i + 1],
                                             (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> name,
-                                            i);
+                                            i );
                                 }
+                                (symbol_table + varind) -> At_the_end_0xA = 1;
                                 fprintf(outfile, "\tmov\trdi, array_%d\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", number_array);
                                 number_array ++;
                                 varind ++;
@@ -1310,6 +1313,7 @@ struct reg compile (struct leaf *Ast)
             strcpy((symbol_table + varind) -> string, Ast -> ast_string -> value);
             (symbol_table + varind) -> type = 1;
             varind ++;
+            (symbol_table + varind) -> At_the_end_0xA = 0;
             outreg.type = 1;
             strcpy (outreg.name, str_name);
             free(str_name);
@@ -1453,11 +1457,16 @@ void epilog()
     {
         if ((symbol_table + i) -> is_static == 1)
         {
-            fprintf(outfile, "\t%s:\t db '%s',10\n\t%s_len:\tequ $-%s\n",
+            char *end = malloc(10 * sizeof(end));
+            if((symbol_table + i) -> At_the_end_0xA == 1) strcpy(end, "0xA,0");
+            else strcpy(end, "10");;
+            fprintf(outfile, "\t%s:\t db '%s', %s\n\t%s_len:\tequ $-%s\n",
                     (symbol_table + i) -> name,
                     (symbol_table + i) -> string,
+                    end,
                     (symbol_table + i) -> name,
                     (symbol_table + i) -> name);
+            free(end);
         }
     }
     fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n");
@@ -1512,21 +1521,8 @@ int main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;
-    for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;
-    for (int i = 0; i < outfinal.size; i++){
         free(compile(outfinal.body).name);
-        outfinal.body ++;
-    }
-    outfinal.body -= outfinal.size;
-    for (int i = 0; i < outfinal.size; i++){
         freeall(outfinal.body);
         outfinal.body ++;
     }
