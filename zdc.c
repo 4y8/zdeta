@@ -23,7 +23,8 @@ enum instruction_type{ function,
                        zidentifier,
                        elsestatement,
                        elifstatement,
-                       ast};
+                       ast,
+                       reg};
 enum variable_type{ integer,
                     char_list,
                     bool,
@@ -55,6 +56,7 @@ struct leaf {
         struct bool                 *ast_bool;
         struct elsestatement        *ast_else;
         struct elifstatement        *ast_elif;
+        struct reg                  *ast_register;
     };
     int length; // Useful for the arrays
 };
@@ -137,9 +139,11 @@ FILE *outfile;
 struct variable *symbol_table;
 int varind = 0; // Keep track of the actual free symbol table place
 int actualindentlevel = 0;
+char custom_functions[10][10];
+int number_functions = 0;
 
 // A function to check if a string is a keyword
-int iskeyword(char in[]){
+int iskeyword (char in[]){
     for(int i = 0; i < 10; i++){
         if (strcmp(keywords[i], in) == 0){
             return 1;
@@ -156,6 +160,17 @@ int isinchars(char in[], char check){
     }
     return 0;
 }
+
+int is_custom_functions(char in[])
+{
+    for(int i = 0; i < number_functions; i++){
+        if (strcmp(custom_functions[i], in) == 0){
+            return 1;
+        }
+    }
+    return 0;
+}
+
 // A function to check the operator precedence of an input string
 int operatorPrecedence (char operator[]){
     int precedence = -1; // If the input is not an operator or is empty, return -1
@@ -468,6 +483,8 @@ void printAST(struct leaf *AST, int tabs){
             AST -> ast -= j;
             break;
         }
+        case 12:
+            break;
     }
 }
 
@@ -551,6 +568,8 @@ void freeall(struct leaf *AST){
                 freeall(AST -> ast);
                 AST -> ast ++;
             }
+            break;
+        case 12:
             break;
     }
 }
@@ -668,6 +687,8 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             }
             break;
         }
+        case 12:
+            break;
     }
     receiver -> type = transmitter -> type;
 }
@@ -872,6 +893,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                         size ++;
                     } // Move at the end the block
+                    strcpy(custom_functions[number_functions], (Ast + aindex) -> ast_functiondeclaration -> name); // Add the name of the function to the list of custom functions
+                    number_functions ++;
                     size --;
                 }
                 aindex ++;
@@ -1099,10 +1122,86 @@ struct reg // the structure of a register and its name
     enum variable_type type;
 };
 
+void replace_identifier_by_reg (char identifiers[][10], char register_names[][10], struct leaf *Ast, int identifier_num, int register_num)
+{
+    if (identifier_num > register_num) return;
+    switch (Ast -> type)
+    {
+        case 0 :
+        case 1 :
+        case 6 :
+        case 7 :
+        case 9 :
+        case 10 :
+        case 11 :
+        {
+            int body_length;
+            struct leaf *Astbody;
+            switch (Ast -> type)
+            {
+                case 0:
+                    body_length = Ast -> ast_functiondeclaration -> body_length;
+                    Astbody = Ast -> ast_functiondeclaration -> body;
+                    break;
+                case 1:
+                    body_length = Ast -> ast_function -> body_length;
+                    Astbody = Ast -> ast_function -> body;
+                    break;
+                case 6 :
+                    body_length = Ast -> ast_if -> body_length;
+                    replace_identifier_by_reg(identifiers, register_names, Ast -> ast_if -> condition, identifier_num, register_num);
+                    Astbody = Ast -> ast_if -> body;
+                    break;
+                case 7 :
+                    replace_identifier_by_reg(identifiers, register_names, Ast -> ast_while -> condition, identifier_num, register_num);
+                    body_length = Ast -> ast_while -> body_length;
+                    Astbody = Ast -> ast_while -> body;
+                    break;
+                case 9 :
+                    body_length = Ast -> ast_else -> body_length;
+                    Astbody = Ast -> ast_else -> body;
+                    break;
+                case 10 :
+                    replace_identifier_by_reg(identifiers, register_names, Ast -> ast_elif -> condition, identifier_num, register_num);
+                    body_length = Ast -> ast_elif -> body_length;
+                    Astbody = Ast -> ast_elif -> body;
+                    break;
+                case 11 :
+                    body_length = Ast -> ast -> length;
+                    Astbody = Ast -> ast;
+                    break;
+                case 2 : break;
+                case 3 : break;
+                case 4 : break;
+                case 5 : break;
+                case 8 : break;
+                case 12 : break;
+            }
+            for (int i = 0; i < body_length; i++)
+            {
+                replace_identifier_by_reg(identifiers, register_names, Astbody, identifier_num, register_num);
+                Astbody ++;
+            }
+            Astbody -= body_length;
+            break;
+        }
+        case 2 : break;
+        case 3 : break;
+        case 4 : break;
+        case 5 : break;
+        case 8 :
+            if ()
+            Ast -> ast_register = (struct reg*) malloc(sizeof(struct reg));
+            Ast -> type = 12;
+            break;
+        case 12 : break;
+    }
+}
+
 static char *reglist[4] = { "r8", "r9", "r10", "r11" }; //List of registers
-int number_stings = 0, used_registers = 0, number_functions = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
+int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[3] = {0, 0, 0};
-static char *arg_func_list[6] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
 int new_register (void)
 {
@@ -1123,6 +1222,11 @@ struct reg compile (struct leaf *Ast)
     switch (Ast -> type)
     {
         case 0 :
+            replace_identifier_by_reg(Ast -> ast_functiondeclaration -> arguments,
+                                      arg_func_list,
+                                      Ast -> ast_functiondeclaration -> body,
+                                      Ast -> ast_functiondeclaration -> body_length,
+                                      6);
             printAST(Ast, 0);
             break;
         case 1 :
@@ -1429,6 +1533,10 @@ struct reg compile (struct leaf *Ast)
             Ast -> ast -= ast_length;
             return outreg;
         }
+        case 12:
+            outreg.type = Ast -> ast_register -> type;
+            strcpy(outreg.name, Ast -> ast_register -> name);
+            return outreg;
     }
     return outreg;
 }
