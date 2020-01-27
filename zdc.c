@@ -576,9 +576,7 @@ void freeall(struct leaf *AST){
             }
             break;
         case 12:
-            puts(AST-> ast_register -> name);
             free(AST -> ast_register -> name);
-            puts("ee");
             free(AST -> ast_register);
             break;
     }
@@ -873,6 +871,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 }
                 else
                 {
+                    puts("ee");
                     (Ast + aindex) -> type = 0;
                     size ++;
                     (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
@@ -1059,22 +1058,40 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             size ++;
         }
         else if (token.type == 2){
-            (Ast + aindex) -> type = 8;
-            (Ast + aindex) -> ast_identifier = (struct identifier*) malloc (sizeof(struct identifier));
-            strcpy((Ast + aindex) -> ast_identifier -> name, token.value);
-            size ++;
-            if (!strcmp((tokens + size) -> value, "::"))
+            if (is_in_strings(token.value, custom_functions, number_functions))
             {
                 lex.base_value = size + 1;
                 struct parse argbody = parsestatement (lex, "", 1);
-                (Ast + aindex) -> ast_identifier -> index = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
-                (Ast + aindex) -> ast_identifier -> has_index = 1;
-                copy_ast(argbody.body, (Ast + aindex) -> ast_identifier -> index, 0, 0);
+                (Ast + aindex) -> type = 1;
+                (Ast + aindex) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
+                (Ast + aindex) -> ast_function -> body_length = 1;
+                strcpy((Ast + aindex) -> ast_function -> function, token.value);
+                (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(sizeof(struct leaf));
+                copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                 freeall(argbody.body);
                 free(argbody.body);
+                printAST(Ast +aindex, 0);
                 size += 1 + argbody.used_tokens;
             }
-            else (Ast + aindex) -> ast_identifier -> has_index = 0;
+            else
+            {
+                (Ast + aindex) -> type = 8;
+                (Ast + aindex) -> ast_identifier = (struct identifier*) malloc (sizeof(struct identifier));
+                strcpy((Ast + aindex) -> ast_identifier -> name, token.value);
+                size ++;
+                if (!strcmp((tokens + size) -> value, "::"))
+                {
+                    lex.base_value = size + 1;
+                    struct parse argbody = parsestatement (lex, "", 1);
+                    (Ast + aindex) -> ast_identifier -> index = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                    (Ast + aindex) -> ast_identifier -> has_index = 1;
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_identifier -> index, 0, 0);
+                    freeall(argbody.body);
+                    free(argbody.body);
+                    size += 1 + argbody.used_tokens;
+                }
+                else (Ast + aindex) -> ast_identifier -> has_index = 0;
+            }
             aindex ++;
         }
     }
@@ -1642,6 +1659,7 @@ int main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
+            printAST(outfinal.body, 0);
         check(outfinal.body);
         free(compile(outfinal.body).name);
         freeall(outfinal.body);
@@ -1649,11 +1667,9 @@ int main ( int argc, char *argv[] )
     }
     outfinal.body -= outfinal.size;
     epilog();
-    puts("rrrrrrrrrr");
-    free(symbol_table);
+    free(symbol_table); // Free maaloc'd memory
     free(outfinal.body);
-    fclose(outfile);
-    system("nasm -f elf64 ./out.asm");
-    system("gcc ./out.o -o out -no-pie");
+    fclose(outfile); // Close the output file
+    system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program
     exit(0);
 }
