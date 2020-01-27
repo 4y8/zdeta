@@ -130,6 +130,11 @@ struct variable{
         struct leaf *ast;
     };
 };
+struct reg // the structure of a register and its name
+{
+    char              *name;
+    enum variable_type type;
+};
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
 char *keywords[10] = {"let", "fun", "print", "while", "if", "else",
@@ -161,11 +166,12 @@ int isinchars(char in[], char check){
     return 0;
 }
 
-int is_custom_functions(char in[])
+int is_in_strings(char in[], char list[][10], int length)
 {
-    for(int i = 0; i < number_functions; i++){
-        if (strcmp(custom_functions[i], in) == 0){
-            return 1;
+    for(int i = 0; i < length; i++){
+
+        if (strcmp(list[i], in) == 0){
+            return 1 + i;
         }
     }
     return 0;
@@ -476,7 +482,6 @@ void printAST(struct leaf *AST, int tabs){
             int j = AST -> ast -> length;
             for (int i = 0; i < j; i++)
             {
-
                 printAST (AST -> ast, 0);
                 AST -> ast ++;
             }
@@ -484,6 +489,7 @@ void printAST(struct leaf *AST, int tabs){
             break;
         }
         case 12:
+            printf("register : %s\n", AST -> ast_register -> name);
             break;
     }
 }
@@ -570,6 +576,10 @@ void freeall(struct leaf *AST){
             }
             break;
         case 12:
+            puts(AST-> ast_register -> name);
+            free(AST -> ast_register -> name);
+            puts("ee");
+            free(AST -> ast_register);
             break;
     }
 }
@@ -682,12 +692,16 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             int j = transmitter -> ast -> length;
             receiver -> ast = (struct leaf*) malloc(j * sizeof(struct leaf));
             receiver -> ast -> length = j;
-            for (int i = 0; i < j; i++){
+            for (int i = 0; i < j; i++)
+            {
                 copy_ast(transmitter -> ast, receiver -> ast, i, i);
             }
             break;
         }
         case 12:
+            receiver -> ast_register = (struct reg*) malloc(sizeof(struct reg));
+            receiver -> ast_register -> name = malloc(256 * sizeof(receiver -> ast_register -> name));
+            strcpy(receiver -> ast_register -> name, transmitter -> ast_register -> name);
             break;
     }
     receiver -> type = transmitter -> type;
@@ -1116,12 +1130,6 @@ void check(struct leaf *Ast)
 }
 
 // Functions for the actual compiler
-struct reg // the structure of a register and its name
-{
-    char              *name;
-    enum variable_type type;
-};
-
 void replace_identifier_by_reg (char identifiers[][10], char register_names[][10], struct leaf *Ast, int identifier_num, int register_num)
 {
     if (identifier_num > register_num) return;
@@ -1190,9 +1198,14 @@ void replace_identifier_by_reg (char identifiers[][10], char register_names[][10
         case 4 : break;
         case 5 : break;
         case 8 :
-            if ()
-            Ast -> ast_register = (struct reg*) malloc(sizeof(struct reg));
-            Ast -> type = 12;
+            if (is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num))
+            {
+                Ast -> ast_register = (struct reg*) malloc(sizeof(struct reg));
+
+                Ast -> ast_register -> name = malloc (sizeof(* Ast -> ast_register -> name) * 256);
+                Ast -> type = 12;
+                strcpy(Ast -> ast_register -> name, register_names[is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num)]);
+            }
             break;
         case 12 : break;
     }
@@ -1222,12 +1235,21 @@ struct reg compile (struct leaf *Ast)
     switch (Ast -> type)
     {
         case 0 :
-            replace_identifier_by_reg(Ast -> ast_functiondeclaration -> arguments,
-                                      arg_func_list,
-                                      Ast -> ast_functiondeclaration -> body,
-                                      Ast -> ast_functiondeclaration -> body_length,
-                                      6);
-            printAST(Ast, 0);
+            for(int i = 0; i < Ast -> ast_functiondeclaration -> body_length; i++)
+            {
+                replace_identifier_by_reg(Ast -> ast_functiondeclaration -> arguments,
+                                          arg_func_list,
+                                          Ast -> ast_functiondeclaration -> body,
+                                          Ast -> ast_functiondeclaration -> argnumber,
+                                          6);
+                Ast -> ast_functiondeclaration -> body ++;
+            }
+            Ast -> ast_functiondeclaration -> body -= Ast -> ast_functiondeclaration -> body_length;
+            (symbol_table + varind) -> type = 3;
+            (symbol_table + varind) -> ast = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(Ast, (symbol_table + varind) -> ast, 0, 0);
+            strcpy((symbol_table + varind) -> name, Ast -> ast_functiondeclaration -> name);
+            varind ++;
             break;
         case 1 :
             switch (Ast -> ast_function -> function[0])
@@ -1549,7 +1571,13 @@ void epilog()
         if ((symbol_table + i) -> type == 3)
         {
             fprintf(outfile, "_%s:\n", (symbol_table + i) -> name);
-            compile((symbol_table + i) -> ast);
+            for (int j = 0; j < (symbol_table + i) -> ast -> ast_functiondeclaration -> body_length; j++)
+            {
+                compile((symbol_table + i) -> ast -> ast_functiondeclaration -> body);
+                (symbol_table + i) -> ast -> ast_functiondeclaration -> body ++;
+            }
+            fprintf(outfile, "\tret\n");
+            (symbol_table + i) -> ast -> ast_functiondeclaration -> body -= (symbol_table + i) -> ast -> ast_functiondeclaration -> body_length;
         }
     }
     fprintf(outfile, "section .data\n");
@@ -1572,13 +1600,17 @@ void epilog()
     fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n");
     for (int i = 0; i < varind ; i ++)
     {
-        if ((symbol_table + i) -> is_static == 0)
+        if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == 0))
         {
             if ((symbol_table + i) -> array_length == 0) fprintf(outfile, "\t%s:\t resq 1\n",
                                                                  (symbol_table + i) -> name);
             else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
                                                                       (symbol_table + i) -> name, (symbol_table + i) -> array_length);
         }
+    }
+    for (int i = 0; i < varind ; i ++)
+    {
+        if ((symbol_table + i) -> type == 3) freeall((symbol_table + i) -> ast);
     }
 }
 
@@ -1617,6 +1649,7 @@ int main ( int argc, char *argv[] )
     }
     outfinal.body -= outfinal.size;
     epilog();
+    puts("rrrrrrrrrr");
     free(symbol_table);
     free(outfinal.body);
     fclose(outfile);
