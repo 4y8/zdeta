@@ -699,6 +699,7 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             strcpy(receiver -> ast_register -> name, transmitter -> ast_register -> name);
             break;
     }
+    receiver -> is_negative = transmitter -> is_negative;
     receiver -> type = transmitter -> type;
 }
 
@@ -713,9 +714,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     struct leaf *Ast;
     struct token *tokens = lex.tokens;
     struct token operators[5];
-    for (int i = 0; i < 5; i++) {
-        strcpy(operators[i].value, " ");
-    }
+    for (int i = 0; i < 5; i++) strcpy(operators[i].value, " ");
     Ast = (struct leaf*) malloc(30 * sizeof(struct leaf));
     int aindex = 0;
     int size = lex.base_value;
@@ -1233,7 +1232,7 @@ int new_register (void)
 }
 
 void free_register (void){
-    used_registers --;
+    if (used_registers > 0) used_registers --;
     return;
 }
 
@@ -1279,7 +1278,7 @@ struct reg compile (struct leaf *Ast)
                     free(arg2);
                     outreg.type = 0;
                     strcpy (outreg.name, arg1);
-                    return outreg;
+                    break;
                 }
                 case '/' :
                 case '*' :
@@ -1294,7 +1293,6 @@ struct reg compile (struct leaf *Ast)
                     strcpy (outreg.name, "rax");
                     free_register();
                     free(arg1);
-                    return outreg;
                     break;
                 case '!' :
                 case '=' :
@@ -1387,7 +1385,7 @@ struct reg compile (struct leaf *Ast)
                     free_register();
                     free_register();
                     number_cmp ++;
-                    return outreg;
+                    break;
                 }
                 default :
                     if (!strcmp("print", Ast -> ast_function -> function))
@@ -1439,7 +1437,6 @@ struct reg compile (struct leaf *Ast)
                         free(arg1.name);
                         strcpy(outreg.name, "rax");
                         outreg.type = 0;
-                        return outreg;
                     }
             }
             break;
@@ -1449,7 +1446,7 @@ struct reg compile (struct leaf *Ast)
             fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = 0;
-            return outreg;
+            break;
         }
         case 3 :
             break;
@@ -1466,7 +1463,7 @@ struct reg compile (struct leaf *Ast)
             outreg.type = 1;
             strcpy (outreg.name, str_name);
             free(str_name);
-            return outreg;
+            break;
         case 5 :
             strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
             (symbol_table + varind) -> type = -1;
@@ -1515,7 +1512,7 @@ struct reg compile (struct leaf *Ast)
             }
             fprintf(outfile, "_aft%d:\n", nubmer_structures);
             nubmer_structures ++;
-            return outreg;
+            break;
         }
         case 7 :
         {
@@ -1550,9 +1547,10 @@ struct reg compile (struct leaf *Ast)
                 free(index);
             }
             else fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
+            printf("%d\n", reg);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = (symbol_table + varindex(Ast -> ast_identifier -> name)) -> type;
-            return outreg;
+            break;
         }
         case 9 :
             break;
@@ -1572,12 +1570,16 @@ struct reg compile (struct leaf *Ast)
                     Ast -> ast ++;
                 }
             Ast -> ast -= ast_length;
-            return outreg;
+            break;
         }
         case 12:
             outreg.type = Ast -> ast_register -> type;
             strcpy(outreg.name, Ast -> ast_register -> name);
-            return outreg;
+            break;
+    }
+    if ((outreg.type != -1) && (Ast -> is_negative))
+    {
+        fprintf(outfile, "\tmov\trcx, -1\n\tmov\trax, %s\n\tmul\trcx\n\tmov\t%s, rax\n", outreg.name, outreg.name);
     }
     return outreg;
 }
