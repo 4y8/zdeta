@@ -144,6 +144,7 @@ struct variable *symbol_table;
 int varind = 0; // Keep track of the actual free symbol table place
 int actualindentlevel = 0;
 char custom_functions[10][10];
+int arg_number[10];
 int number_functions = 0;
 
 // A function to check if a string is a keyword
@@ -242,9 +243,9 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
                 (tokens+k) -> type = 4;
             }
             else{
-                (tokens+k) -> type = 2;
+                (tokens + k) -> type = 2;
             }
-            strcpy((tokens+k)->value, buffer);
+            strcpy((tokens + k) -> value, buffer);
             k++;
         }
         else if (isdigit(c)){
@@ -859,7 +860,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     size ++;
                 }
                 size = size_before; // Set back the position to the one we were before
-                if (is_function == 0)
+                if (is_function == 0) // If we haven't encountered a => it is a variable declaration
                 {
                     (Ast + aindex) -> type = 5;
                     (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *) malloc(sizeof(struct variable_declaration));
@@ -880,6 +881,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         (Ast + aindex) -> ast_functiondeclaration -> argnumber ++;
                         size ++;
                     }
+                    arg_number[number_functions] = (Ast + aindex) -> ast_functiondeclaration -> argnumber; // Specify the number of argument of the function
                     lex.base_value = is_function + 2;
                     struct parse argbody = parsestatement(lex, "switch_indent", -1);
                     (Ast + aindex) -> ast_functiondeclaration -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
@@ -901,10 +903,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                         size ++;
                     } // Move at the end the block
-                    strcpy(custom_functions[number_functions], (Ast + aindex) -> ast_functiondeclaration -> name); // Add the name of the function to the list of custom functions
+                    strcpy (custom_functions[number_functions], (Ast + aindex) -> ast_functiondeclaration -> name); // Add the name of the function to the list of custom functions
                     number_functions ++;
                     size --;
-                    puts((tokens + size - 3) -> value);
                 }
                 aindex ++;
             }
@@ -1035,7 +1036,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 size ++;
                 lex.base_value = size;
                 struct parse argbody = parsestatement (lex, "\n", 1);
-                printAST(argbody.body, 0);
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
@@ -1050,18 +1050,26 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             size ++;
         }
         else if (token.type == 2){
-            if (is_in_strings(token.value, custom_functions, number_functions))
+            int index_of_function = is_in_strings(token.value, custom_functions, number_functions);
+            if (index_of_function)
             {
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement (lex, "", 1);
+                struct parse argbody = parsestatement (lex, "", arg_number[index_of_function - 1]);
                 (Ast + aindex) -> type = 1;
                 (Ast + aindex) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
-                (Ast + aindex) -> ast_function -> body_length = 1;
+                puts (custom_functions[0]);
+                printf("%d\n", arg_number[index_of_function - 1]);
+                (Ast + aindex) -> ast_function -> body_length = arg_number[index_of_function - 1];
                 strcpy((Ast + aindex) -> ast_function -> function, token.value);
-                (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(sizeof(struct leaf));
-                copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
-                freeall(argbody.body);
-                free(argbody.body);
+                (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(arg_number[index_of_function - 1] * sizeof(struct leaf));
+                for(int i = 0; i < arg_number[index_of_function - 1]; i ++)
+                {
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
+                    (Ast + aindex) -> ast_function -> body ++;
+                    freeall(argbody.body);
+                    argbody.body ++;
+                }
+                (Ast + aindex) -> ast_function -> body -= arg_number[index_of_function - 1];
                 size += 1 + argbody.used_tokens;
             }
             else
@@ -1070,7 +1078,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_identifier = (struct identifier*) malloc (sizeof(struct identifier));
                 strcpy((Ast + aindex) -> ast_identifier -> name, token.value);
                 size ++;
-                puts("ee");
                 if (!strcmp((tokens + size) -> value, "::"))
                 {
                     lex.base_value = size + 1;
@@ -1206,11 +1213,11 @@ void replace_identifier_by_reg (char identifiers[][10], char register_names[][10
         case 8 :
             if (is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num))
             {
+                int i = is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num);
                 Ast -> ast_register = (struct reg*) malloc(sizeof(struct reg));
-
                 Ast -> ast_register -> name = malloc (sizeof(* Ast -> ast_register -> name) * 256);
                 Ast -> type = 12;
-                strcpy(Ast -> ast_register -> name, register_names[is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num)]);
+                strcpy(Ast -> ast_register -> name, register_names[i - 1]);
             }
             break;
         case 12 : break;
@@ -1241,13 +1248,13 @@ struct reg compile (struct leaf *Ast)
     switch (Ast -> type)
     {
         case 0 :
-            for(int i = 0; i < Ast -> ast_functiondeclaration -> body_length; i++)
+            for (int i = 0; i < Ast -> ast_functiondeclaration -> body_length; i++)
             {
-                replace_identifier_by_reg(Ast -> ast_functiondeclaration -> arguments,
-                                          arg_func_list,
-                                          Ast -> ast_functiondeclaration -> body,
-                                          Ast -> ast_functiondeclaration -> argnumber,
-                                          6);
+                replace_identifier_by_reg (Ast -> ast_functiondeclaration -> arguments,
+                                           arg_func_list,
+                                           Ast -> ast_functiondeclaration -> body,
+                                           Ast -> ast_functiondeclaration -> argnumber,
+                                           6);
                 Ast -> ast_functiondeclaration -> body ++;
             }
             Ast -> ast_functiondeclaration -> body -= Ast -> ast_functiondeclaration -> body_length;
@@ -1431,9 +1438,13 @@ struct reg compile (struct leaf *Ast)
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
                     {
-                        struct reg arg1 = compile(Ast -> ast_function -> body);
-                        fprintf(outfile, "\tmov\trdi, %s\n\tcall\t_%s\n", arg1.name, Ast -> ast_function -> function);
-                        free(arg1.name);
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++)
+                        {
+                            struct reg arg1 = compile(Ast -> ast_function -> body);
+                            fprintf(outfile, "\tmov\t%s, %s\n", arg_func_list[i], arg1.name);
+                            free(arg1.name);
+                        }
+                        fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
                         strcpy(outreg.name, "rax");
                         outreg.type = 0;
                     }
