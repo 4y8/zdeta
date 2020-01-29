@@ -264,23 +264,18 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             k++;
         }
         else if (isinchars(opps, c)){
+            if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '='))
+            {
+                puts("Error : Unexpected combination of opperators");
+                exit(1);
+            }
             (tokens + k) -> type = 0;
             d = fgetc(fp1);
-            if ((c == '=') && (d == '=')){
-                strcpy((tokens + k) -> value, "==");
-            }
-            else if ((c == '<') && (d == '=')){
-                strcpy((tokens + k) -> value, "<=");
-            }
-            else if ((c == '>') && (d == '=')){
-                strcpy((tokens + k) -> value, ">=");
-            }
-            else if ((c == '=') && (d == '>')){
-                strcpy((tokens + k) -> value, "=>");
-            }
-            else if ((c == '!') && (d == '=')){
-                strcpy((tokens + k) -> value, "!=");
-            }
+            if ((c == '=') && (d == '=')) strcpy((tokens + k) -> value, "==");
+            else if ((c == '<') && (d == '=')) strcpy((tokens + k) -> value, "<=");
+            else if ((c == '>') && (d == '=')) strcpy((tokens + k) -> value, ">=");
+            else if ((c == '=') && (d == '>')) strcpy((tokens + k) -> value, "=>");
+            else if ((c == '!') && (d == '=')) strcpy((tokens + k) -> value, "!=");
             else if ((c == '/') && (d == '/')){
                 while (c != '\n'){
                     c = fgetc(fp1);
@@ -1057,11 +1052,14 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 struct parse argbody = parsestatement (lex, "", arg_number[index_of_function - 1]);
                 (Ast + aindex) -> type = 1;
                 (Ast + aindex) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
-                puts (custom_functions[0]);
-                printf("%d\n", arg_number[index_of_function - 1]);
                 (Ast + aindex) -> ast_function -> body_length = arg_number[index_of_function - 1];
                 strcpy((Ast + aindex) -> ast_function -> function, token.value);
                 (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(arg_number[index_of_function - 1] * sizeof(struct leaf));
+                if (argbody.size < arg_number[index_of_function - 1])
+                {
+                    printf("Error : Not enough argument for the function %s.\n", custom_functions[index_of_function - 1]);
+                    exit (1);
+                }
                 for(int i = 0; i < arg_number[index_of_function - 1]; i ++)
                 {
                     copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
@@ -1443,7 +1441,9 @@ struct reg compile (struct leaf *Ast)
                             struct reg arg1 = compile(Ast -> ast_function -> body);
                             fprintf(outfile, "\tmov\t%s, %s\n", arg_func_list[i], arg1.name);
                             free(arg1.name);
+                            Ast -> ast_function -> body ++;
                         }
+                        Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
                         fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
                         strcpy(outreg.name, "rax");
                         outreg.type = 0;
@@ -1656,7 +1656,7 @@ void epilog()
 
 int main ( int argc, char *argv[] )
 {
-    if (argc != 2) exit(1);
+    if (argc != 2) exit(1); //If we don't have a file to comile exit.
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n");
@@ -1682,7 +1682,6 @@ int main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
         check(outfinal.body);
         free(compile(outfinal.body).name);
         freeall(outfinal.body);
