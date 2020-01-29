@@ -787,21 +787,19 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             }
             else if (token.value[0] == '\n'){
                 current_operator --;
-                if (isinchars(opps, operators[current_operator].value[0])){
-                    while (current_operator >= 0) {
-                        arg2 = (struct leaf *) malloc(sizeof(struct leaf));
-                        copy_ast(Ast, arg2, aindex - 2, 0);
-                        (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
-                        (Ast + aindex - 2) -> ast_function->body = (struct leaf *) malloc(2 * sizeof(struct leaf));
-                        (Ast + aindex - 2) -> type = 1;
-                        strcpy(((Ast + aindex - 2) -> ast_function) -> function,
-                               operators[current_operator].value);
-                        copy_ast(arg2, (Ast + aindex - 2)->ast_function->body, 0, 0);
-                        copy_ast(Ast, (Ast + aindex - 2)->ast_function->body, aindex - 1, 1);
-                        ((Ast + aindex - 2) -> ast_function)->body_length = 2;
-                        aindex --;
-                        current_operator--;
-                    }
+                while (current_operator >= 0) {
+                    arg2 = (struct leaf *) malloc(sizeof(struct leaf));
+                    copy_ast(Ast, arg2, aindex - 2, 0);
+                    (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
+                    (Ast + aindex - 2) -> ast_function->body = (struct leaf *) malloc(2 * sizeof(struct leaf));
+                    (Ast + aindex - 2) -> type = 1;
+                    strcpy(((Ast + aindex - 2) -> ast_function) -> function,
+                           operators[current_operator].value);
+                    copy_ast(arg2, (Ast + aindex - 2)->ast_function->body, 0, 0);
+                    copy_ast(Ast, (Ast + aindex - 2)->ast_function->body, aindex - 1, 1);
+                    ((Ast + aindex - 2) -> ast_function)->body_length = 2;
+                    aindex --;
+                    current_operator--;
                 }
                 current_operator = 0;
                 size ++;
@@ -906,6 +904,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     strcpy(custom_functions[number_functions], (Ast + aindex) -> ast_functiondeclaration -> name); // Add the name of the function to the list of custom functions
                     number_functions ++;
                     size --;
+                    puts((tokens + size - 3) -> value);
                 }
                 aindex ++;
             }
@@ -1035,8 +1034,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 size ++;
                 lex.base_value = size;
-                puts((tokens + size) -> value);
-                puts("ee");
                 struct parse argbody = parsestatement (lex, "\n", 1);
                 printAST(argbody.body, 0);
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
@@ -1073,6 +1070,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_identifier = (struct identifier*) malloc (sizeof(struct identifier));
                 strcpy((Ast + aindex) -> ast_identifier -> name, token.value);
                 size ++;
+                puts("ee");
                 if (!strcmp((tokens + size) -> value, "::"))
                 {
                     lex.base_value = size + 1;
@@ -1090,27 +1088,25 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         }
     }
     current_operator --;
-    if (isinchars(opps, operators[current_operator].value[0])){
-        while (current_operator >= 0) {
-            arg2 = (struct leaf *) malloc(sizeof(struct leaf));
-            copy_ast(Ast, arg2, aindex - 2, 0);
-            freeall(Ast + aindex - 2);
-            (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
-            (Ast + aindex - 2) -> ast_function -> body = (struct leaf *) malloc(2 * sizeof(struct leaf));
-            (Ast + aindex - 2) -> type = 1;
-            strcpy(((Ast + aindex - 2) -> ast_function) -> function,
-                   operators[current_operator].value);
-            copy_ast(arg2, (Ast + aindex - 2) -> ast_function->body, 0, 0);
-            copy_ast(Ast, (Ast + aindex - 2) -> ast_function->body, aindex - 1, 1);
-            ((Ast + aindex - 2) -> ast_function) -> body_length = 2;
-            (Ast + aindex - 2) -> length = 0;
-            freeall(Ast + aindex - 1);
-            (Ast + aindex - 2) -> is_negative = 0;
-            freeall(arg2);
-            free(arg2);
-            aindex --;
-            current_operator --;
-        }
+    while (current_operator >= 0) {
+        arg2 = (struct leaf *) malloc(sizeof(struct leaf));
+        copy_ast(Ast, arg2, aindex - 2, 0);
+        freeall(Ast + aindex - 2);
+        (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
+        (Ast + aindex - 2) -> ast_function -> body = (struct leaf *) malloc(2 * sizeof(struct leaf));
+        (Ast + aindex - 2) -> type = 1;
+        strcpy(((Ast + aindex - 2) -> ast_function) -> function,
+               operators[current_operator].value);
+        copy_ast(arg2, (Ast + aindex - 2) -> ast_function->body, 0, 0);
+        copy_ast(Ast, (Ast + aindex - 2) -> ast_function->body, aindex - 1, 1);
+        ((Ast + aindex - 2) -> ast_function) -> body_length = 2;
+        (Ast + aindex - 2) -> length = 0;
+        freeall(Ast + aindex - 1);
+        (Ast + aindex - 2) -> is_negative = 0;
+        freeall(arg2);
+        free(arg2);
+        aindex --;
+        current_operator --;
     }
     struct parse output;
     output.body = Ast;
