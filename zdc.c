@@ -136,7 +136,7 @@ struct reg // the structure of a register and its name
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
-char *keywords[10] = {"let", "fun", "print", "while", "if", "else",
+char *keywords[9] = {"let", "print", "while", "if", "else",
                   "elif", "swap", "match", "iter"}; // List of keybords
 FILE *fp1;
 FILE *outfile;
@@ -148,7 +148,7 @@ int number_functions = 0;
 
 // A function to check if a string is a keyword
 int iskeyword (char in[]){
-    for(int i = 0; i < 10; i++){
+    for(int i = 0; i < 9; i++){
         if (strcmp(keywords[i], in) == 0){
             return 1;
         }
@@ -1035,17 +1035,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 size ++;
                 lex.base_value = size;
-                arg2 = parsestatement(lex, "\n", -1).body;
+                puts((tokens + size) -> value);
+                puts("ee");
+                struct parse argbody = parsestatement (lex, "\n", 1);
+                printAST(argbody.body, 0);
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(arg2, ((Ast + aindex) -> ast_function -> body), 0, 0);
+                copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
                 ((Ast + aindex) -> ast_function ) -> body_length = 1;
                 strcpy((Ast + aindex) -> ast_function -> function, "print");
-                while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))){
-                    size ++;
-                }
-                freeall(arg2);
-                free(arg2);
+                while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
+                freeall(argbody.body);
                 aindex ++;
                 used_structures --;
             }
@@ -1105,6 +1105,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             ((Ast + aindex - 2) -> ast_function) -> body_length = 2;
             (Ast + aindex - 2) -> length = 0;
             freeall(Ast + aindex - 1);
+            (Ast + aindex - 2) -> is_negative = 0;
             freeall(arg2);
             free(arg2);
             aindex --;
@@ -1281,19 +1282,21 @@ struct reg compile (struct leaf *Ast)
                     break;
                 }
                 case '/' :
-                case '*' :
-                    fprintf(outfile, "\tmov\trax, %d\n", Ast -> ast_function -> body -> ast_number -> value);
+                case '*' :{
+                    char *arg1 = compile(Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body ++;
-                    char *arg1 = malloc (sizeof(*arg1) * 256);
-                    strcpy(arg1, compile (Ast -> ast_function -> body).name);
+                    char *arg2 = compile (Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body --;
-                    if (Ast -> ast_function -> function[0] == '*') fprintf(outfile, "\tmul\t%s\n", arg1);
-                    else fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg1);
+                    fprintf(outfile, "\tmov\trax, %s\n", arg1);
+                    if (Ast -> ast_function -> function[0] == '*') fprintf(outfile, "\tmul\t%s\n", arg2);
+                    else fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg2);
                     outreg.type = 0;
                     strcpy (outreg.name, "rax");
                     free_register();
                     free(arg1);
+                    free(arg2);
                     break;
+                }
                 case '!' :
                 case '=' :
                 case '>' :
