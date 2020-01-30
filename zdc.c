@@ -1439,7 +1439,12 @@ struct reg compile (struct leaf *Ast)
                         for (int i = 0; i < Ast -> ast_function -> body_length; i++)
                         {
                             struct reg arg1 = compile(Ast -> ast_function -> body);
+                            if (i >= 4) new_register();
                             fprintf(outfile, "\tmov\t%s, %s\n", arg_func_list[i], arg1.name);
+                            for (int j = 0; j < 4; j++)
+                            {
+                                if (!strcmp(reglist[j], arg1.name)) free_register();
+                            }
                             free(arg1.name);
                             Ast -> ast_function -> body ++;
                         }
@@ -1682,6 +1687,7 @@ int main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
+        printAST(outfinal.body, 0);
         check(outfinal.body);
         free(compile(outfinal.body).name);
         freeall(outfinal.body);
