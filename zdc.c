@@ -149,31 +149,18 @@ int number_functions = 0;
 
 // A function to check if a string is a keyword
 int iskeyword (char in[]){
-    for(int i = 0; i < 9; i++){
-        if (strcmp(keywords[i], in) == 0){
-            return 1;
-        }
-    }
+    for(int i = 0; i < 9; i++) if (strcmp(keywords[i], in) == 0) return 1;
     return 0;
 }
 // A function to check if a char is in a char list
 int isinchars(char in[], char check){
-    for(int i = 0; i < 11; i++){
-        if (in[i] == check){
-            return 1;
-        }
-    }
+    for(int i = 0; i < 11; i++) if (in[i] == check) return 1;
     return 0;
 }
 
 int is_in_strings(char in[], char list[][10], int length)
 {
-    for(int i = 0; i < length; i++){
-
-        if (strcmp(list[i], in) == 0){
-            return 1 + i;
-        }
-    }
+    for(int i = 0; i < length; i++) if (strcmp(list[i], in) == 0) return 1 + i;
     return 0;
 }
 
@@ -225,9 +212,6 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
     while (c != EOF){
         c = fgetc(fp1);
         char d = ' ';
-        if (c == EOF){
-            break;
-        }
         if (isalpha(c)){
             j = ftell(fp1);
             i = 0;
@@ -710,7 +694,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     int current_operator = 0;
     int used_structures = 0;
     while (size <= lex.size){
-        if (((tokens + size - 1) -> value[0] == '-') && ((((tokens + size - 2) -> type == 0)) || ((tokens + size - 2) -> type == 1)))
+        if (((tokens + size - 1) -> value[0] == '-')
+            && ((((tokens + size - 2) -> type == 0)) || ((tokens + size - 2) -> type == 1) || (is_in_strings((tokens + size - 2) -> value, custom_functions, number_functions))))
         {
             (Ast + aindex) -> is_negative = 1;
             current_operator --;
@@ -1446,7 +1431,6 @@ struct reg compile (struct leaf *Ast)
                             }
                             else fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
                             free_register();
-                            puts("ee");
                             restore_registers();
                         }
                         else if (arg.type == 1) fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
