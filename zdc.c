@@ -239,11 +239,12 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            if (iskeyword(buffer)){
-                (tokens+k) -> type = 4;
-            }
-            else{
-                (tokens + k) -> type = 2;
+            if (iskeyword(buffer)) (tokens+k) -> type = 4;
+            else (tokens + k) -> type = 2;
+            if (!strcmp("BqclINUqKLPgNdXqTFiNEmMTrayXncME", buffer))
+            {
+                puts("Error : can't name a variable BqclINUqKLPgNdXqTFiNEmMTrayXncME.");
+                exit(1);
             }
             strcpy((tokens + k) -> value, buffer);
             k++;
@@ -277,9 +278,7 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             else if ((c == '=') && (d == '>')) strcpy((tokens + k) -> value, "=>");
             else if ((c == '!') && (d == '=')) strcpy((tokens + k) -> value, "!=");
             else if ((c == '/') && (d == '/')){
-                while (c != '\n'){
-                    c = fgetc(fp1);
-                }
+                while (c != '\n') c = fgetc(fp1);
                 k --;
             }
             else{
@@ -307,9 +306,7 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             }
             else if (c == '#'){
                 c = fgetc(fp1);
-                while (c != '#'){
-                    c = fgetc(fp1);
-                }
+                while (c != '#') c = fgetc(fp1);
                 k --;
                 c = fgetc(fp1);
             }
@@ -340,9 +337,7 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
                         c = fgetc(fp1);
                         indent ++;
                     }
-                    if (c != EOF){
-                        fseek(fp1, ftell(fp1) - 1, SEEK_SET);
-                    }
+                    if (c != EOF) fseek(fp1, ftell(fp1) - 1, SEEK_SET);
                     indent = indent / 2;
                     if (indent < actualindentlevel)
                     {
@@ -369,9 +364,7 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
 }
 
 void tabulation(int tabs){
-    for(int i = 0; i < tabs; i++){
-        printf("  ");
-    }
+    for(int i = 0; i < tabs; i++) printf("  ");
     return;
 }
 
@@ -844,6 +837,11 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         }
         else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
+                if ((tokens + size + 1) -> type != 2)
+                {
+                    puts("Error : can't assign to something that is not an identifier.");
+                    exit(1);
+                }
                 int is_function = 0;
                 int size_before = size;
                 while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) { // We first search if we have a "=>" token on the line
@@ -1226,6 +1224,24 @@ static char *reglist[4] = { "r8", "r9", "r10", "r11" }; //List of registers
 int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[3] = {0, 0, 0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
+int used_buffers = 0;
+int maximum_buffers = 0;
+
+void save_registers ()
+{
+    if ((maximum_buffers - used_buffers) == 0) maximum_buffers ++;
+    used_buffers ++;
+    for (int i = 0; i < 6; i++) fprintf(outfile, "\tmov\t[BqclINUqKLPgNdXqTFiNEmMTrayXncME + %d], %s\n",
+                                        8 * i + 48 * (maximum_buffers - used_buffers), arg_func_list[i]);
+
+}
+
+void restore_registers ()
+{
+    for (int i = 0; i < 6; i++) fprintf(outfile, "\tmov\t%s, [BqclINUqKLPgNdXqTFiNEmMTrayXncME + %d]\n",
+                                                       arg_func_list[i], 8 * i + 48 * (maximum_buffers - used_buffers));
+    used_buffers --;
+}
 
 int new_register (void)
 {
@@ -1334,7 +1350,6 @@ struct reg compile (struct leaf *Ast)
                             }
                             else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0))
                             {
-                                printf("%d\n", Ast -> ast_function -> body -> ast_identifier -> has_index);
                                 puts("Error : assigning a single value to an array.");
                                 exit(1);
                             }
@@ -1394,6 +1409,7 @@ struct reg compile (struct leaf *Ast)
                 default :
                     if (!strcmp("print", Ast -> ast_function -> function))
                     {
+                        save_registers();
                         struct reg arg = compile(Ast -> ast_function -> body);
                         if (arg.type == 0)
                         {
@@ -1430,6 +1446,8 @@ struct reg compile (struct leaf *Ast)
                             }
                             else fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
                             free_register();
+                            puts("ee");
+                            restore_registers();
                         }
                         else if (arg.type == 1) fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
                         free(arg.name);
@@ -1450,6 +1468,7 @@ struct reg compile (struct leaf *Ast)
                         }
                         Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
                         fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
+                        for (int i = 4; i < Ast -> ast_function -> body_length; i++) free_register();
                         strcpy(outreg.name, "rax");
                         outreg.type = 0;
                     }
@@ -1514,7 +1533,6 @@ struct reg compile (struct leaf *Ast)
                     struct reg comp = compile (Ast -> ast_else -> body);
                     if (comp.type != -1)
                     {
-                        //tmpreg.type = comp.type;
                         strcpy (tmpreg.name, comp.name);
                     }
                     Ast -> ast_else -> body ++;
@@ -1562,7 +1580,6 @@ struct reg compile (struct leaf *Ast)
                 free(index);
             }
             else fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
-            printf("%d\n", reg);
             strcpy (outreg.name, reglist[reg]);
             outreg.type = (symbol_table + varindex(Ast -> ast_identifier -> name)) -> type;
             break;
@@ -1647,12 +1664,13 @@ void epilog()
     {
         if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == 0))
         {
-            if ((symbol_table + i) -> array_length == 0) fprintf(outfile, "\t%s:\t resq 1\n",
+            if ((symbol_table + i) -> array_length == 0) fprintf(outfile, "\t%s:\tresq 1\n",
                                                                  (symbol_table + i) -> name);
             else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
                                                                       (symbol_table + i) -> name, (symbol_table + i) -> array_length);
         }
     }
+    fprintf(outfile, "\tBqclINUqKLPgNdXqTFiNEmMTrayXncME:\tresq %d", 6 * (maximum_buffers + 1));
     for (int i = 0; i < varind ; i ++)
     {
         if ((symbol_table + i) -> type == 3) freeall((symbol_table + i) -> ast);
@@ -1687,7 +1705,6 @@ int main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
-        printAST(outfinal.body, 0);
         check(outfinal.body);
         free(compile(outfinal.body).name);
         freeall(outfinal.body);
