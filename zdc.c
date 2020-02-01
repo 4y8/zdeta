@@ -861,6 +861,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     }
                     arg_number[number_functions] = (Ast + aindex) -> ast_functiondeclaration -> argnumber; // Specify the number of argument of the function
                     lex.base_value = is_function + 2;
+                    strcpy (custom_functions[number_functions], (Ast + aindex) -> ast_functiondeclaration -> name); // Add the name of the function to the list of custom functions
+                    number_functions ++;
                     struct parse argbody = parsestatement(lex, "switch_indent", -1);
                     (Ast + aindex) -> ast_functiondeclaration -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                     for (int i = 0; i < argbody.size; i ++) // Copy all ASTs to the function body
@@ -881,8 +883,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                         size ++;
                     } // Move at the end the block
-                    strcpy (custom_functions[number_functions], (Ast + aindex) -> ast_functiondeclaration -> name); // Add the name of the function to the list of custom functions
-                    number_functions ++;
+
                     size --;
                 }
                 aindex ++;
@@ -1277,7 +1278,7 @@ struct reg compile (struct leaf *Ast)
                     Ast -> ast_function -> body --;
                     if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
                     else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
-                    free_register();
+                    for (int j = 0; j < 4; j++) if (!strcmp(reglist[j], arg2)) free_register();
                     free(arg2);
                     outreg.type = 0;
                     strcpy (outreg.name, arg1);
@@ -1294,7 +1295,7 @@ struct reg compile (struct leaf *Ast)
                     else fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg2);
                     outreg.type = 0;
                     strcpy (outreg.name, "rax");
-                    free_register();
+                    for (int j = 0; j < 4; j++) if ((!strcmp(reglist[j], arg2)) || (!strcmp(reglist[j], arg1))) free_register();
                     free(arg1);
                     free(arg2);
                     break;
@@ -1386,8 +1387,7 @@ struct reg compile (struct leaf *Ast)
                     free(arg1);
                     free(arg2);
                     free (cmp);
-                    free_register();
-                    free_register();
+                    for (int j = 0; j < 4; j++) if ((!strcmp(reglist[j], arg2)) || (!strcmp(reglist[j], arg1))) free_register();
                     number_cmp ++;
                     break;
                 }
@@ -1438,22 +1438,22 @@ struct reg compile (struct leaf *Ast)
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
                     {
+                        save_registers();
                         for (int i = 0; i < Ast -> ast_function -> body_length; i++)
                         {
                             struct reg arg1 = compile(Ast -> ast_function -> body);
                             if (i >= 4) new_register();
                             fprintf(outfile, "\tmov\t%s, %s\n", arg_func_list[i], arg1.name);
-                            for (int j = 0; j < 4; j++)
-                            {
-                                if (!strcmp(reglist[j], arg1.name)) free_register();
-                            }
+                            for (int j = 0; j < 4; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
                             free(arg1.name);
                             Ast -> ast_function -> body ++;
                         }
                         Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
-                        fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
+                        int i = new_register();
+                        restore_registers();
+                        fprintf(outfile, "\tcall\t_%s\n\tmov\t%s, rax\n", Ast -> ast_function -> function, reglist[i]);
                         for (int i = 4; i < Ast -> ast_function -> body_length; i++) free_register();
-                        strcpy(outreg.name, "rax");
+                        strcpy(outreg.name, reglist[i]);
                         outreg.type = 0;
                     }
             }
@@ -1489,11 +1489,13 @@ struct reg compile (struct leaf *Ast)
             break;
         case 6 :
         {
+            nubmer_structures ++;
+            int i = nubmer_structures - 1;
             struct reg condition = compile (Ast -> ast_if -> condition);
             fprintf(outfile, "\tcmp\t%s, 0\n", condition.name);
             free(condition.name);
-            if ((Ast + 1) -> type == 9) fprintf(outfile, "\tje\t_else%d\n", nubmer_structures);
-            else fprintf(outfile, "\tje\t_aft%d\n", nubmer_structures);
+            if ((Ast + 1) -> type == 9) fprintf(outfile, "\tje\t_else%d\n", i);
+            else fprintf(outfile, "\tje\t_aft%d\n", i);
             for (int i = 0; i < Ast -> ast_if -> body_length; i ++)
             {
                 struct reg comp = compile (Ast -> ast_if -> body);
@@ -1510,7 +1512,7 @@ struct reg compile (struct leaf *Ast)
             {
                 struct reg tmpreg;
                 tmpreg.name = malloc (sizeof(*tmpreg.name) * 256);
-                fprintf(outfile, "\tjmp\t_aft%d\n_else%d:\n", nubmer_structures, nubmer_structures);
+                fprintf(outfile, "\tjmp\t_aft%d\n_else%d:\n", i, i);
                 Ast ++;
                 for (int i = 0; i < Ast -> ast_else -> body_length; i ++)
                 {
@@ -1527,8 +1529,7 @@ struct reg compile (struct leaf *Ast)
                 if (outreg.type != -1) fprintf(outfile, "\tmov\t%s, %s\n", outreg.name, tmpreg.name);
                 free(tmpreg.name);
             }
-            fprintf(outfile, "_aft%d:\n", nubmer_structures);
-            nubmer_structures ++;
+            fprintf(outfile, "_aft%d:\n", i);
             break;
         }
         case 7 :
@@ -1589,9 +1590,13 @@ struct reg compile (struct leaf *Ast)
             break;
         }
         case 12:
+        {
+            int i = new_register();
+            fprintf(outfile, "\tmov·\t%s, %s\n", reglist[i], Ast -> ast_register -> name);
             outreg.type = Ast -> ast_register -> type;
-            strcpy(outreg.name, Ast -> ast_register -> name);
+            strcpy(outreg.name, reglist[i]);
             break;
+        }
     }
     if ((outreg.type != -1) && (Ast -> is_negative))
     {
@@ -1689,6 +1694,7 @@ int main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
+        printAST(outfinal.body, 0);
         check(outfinal.body);
         free(compile(outfinal.body).name);
         freeall(outfinal.body);
