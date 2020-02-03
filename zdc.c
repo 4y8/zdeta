@@ -1371,6 +1371,7 @@ struct reg compile (struct leaf *Ast)
                     }
                     char *arg1 = compile (Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body ++;
+                    puts(arg1);
                     char *arg2 = compile (Ast -> ast_function -> body).name;
                     used_functions[1] = 1;
                     Ast -> ast_function -> body --;
