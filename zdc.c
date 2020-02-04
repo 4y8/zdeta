@@ -24,7 +24,8 @@ enum instruction_type{ function,
                        elsestatement,
                        elifstatement,
                        ast,
-                       reg};
+                       reg,
+                       stack_pos};
 enum variable_type{ integer,
                     char_list,
                     bool,
@@ -57,6 +58,7 @@ struct leaf {
         struct elsestatement        *ast_else;
         struct elifstatement        *ast_elif;
         struct reg                  *ast_register;
+        int                          stack_pos;
     };
     int length; // Useful for the arrays
     int is_negative;
@@ -463,6 +465,7 @@ void printAST(struct leaf *AST, int tabs){
         case 12:
             printf("register : %s\n", AST -> ast_register -> name);
             break;
+        case 13: break;
     }
 }
 
@@ -551,6 +554,7 @@ void freeall(struct leaf *AST){
             free(AST -> ast_register -> name);
             free(AST -> ast_register);
             break;
+        case 13: break;
     }
 }
 
@@ -671,6 +675,8 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
             receiver -> ast_register -> name = malloc(256 * sizeof(*receiver -> ast_register -> name));
             strcpy(receiver -> ast_register -> name, transmitter -> ast_register -> name);
             break;
+        case 13:
+            receiver -> stack_pos = transmitter -> stack_pos;
     }
     receiver -> is_negative = transmitter -> is_negative;
     receiver -> type = transmitter -> type;
@@ -1014,7 +1020,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 size ++;
                 lex.base_value = size;
-                struct parse argbody = parsestatement (lex, "\n", 1);
+                struct parse argbody = parsestatement (lex, "\n", -1);
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
@@ -1125,9 +1131,8 @@ void check(struct leaf *Ast)
 }
 
 // Functions for the actual compiler
-void replace_identifier_by_reg (char identifiers[][10], char register_names[][10], struct leaf *Ast, int identifier_num, int register_num)
+void replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int identifier_num)
 {
-    if (identifier_num > register_num) return;
     switch (Ast -> type)
     {
         case 0 :
@@ -1152,11 +1157,11 @@ void replace_identifier_by_reg (char identifiers[][10], char register_names[][10
                     break;
                 case 6 :
                     body_length = Ast -> ast_if -> body_length;
-                    replace_identifier_by_reg(identifiers, register_names, Ast -> ast_if -> condition, identifier_num, register_num);
+                    replace_identifier_by_stack_pos(identifiers, Ast -> ast_if -> condition, identifier_num);
                     Astbody = Ast -> ast_if -> body;
                     break;
                 case 7 :
-                    replace_identifier_by_reg(identifiers, register_names, Ast -> ast_while -> condition, identifier_num, register_num);
+                    replace_identifier_by_stack_pos(identifiers, Ast -> ast_while -> condition, identifier_num);
                     body_length = Ast -> ast_while -> body_length;
                     Astbody = Ast -> ast_while -> body;
                     break;
@@ -1165,7 +1170,7 @@ void replace_identifier_by_reg (char identifiers[][10], char register_names[][10
                     Astbody = Ast -> ast_else -> body;
                     break;
                 case 10 :
-                    replace_identifier_by_reg(identifiers, register_names, Ast -> ast_elif -> condition, identifier_num, register_num);
+                    replace_identifier_by_stack_pos(identifiers, Ast -> ast_elif -> condition, identifier_num);
                     body_length = Ast -> ast_elif -> body_length;
                     Astbody = Ast -> ast_elif -> body;
                     break;
@@ -1179,10 +1184,11 @@ void replace_identifier_by_reg (char identifiers[][10], char register_names[][10
                 case 5 : break;
                 case 8 : break;
                 case 12 : break;
+                case 13: break;
             }
             for (int i = 0; i < body_length; i++)
             {
-                replace_identifier_by_reg(identifiers, register_names, Astbody, identifier_num, register_num);
+                replace_identifier_by_stack_pos(identifiers, Astbody, identifier_num);
                 Astbody ++;
             }
             Astbody -= body_length;
@@ -1196,13 +1202,12 @@ void replace_identifier_by_reg (char identifiers[][10], char register_names[][10
             if (is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num))
             {
                 int i = is_in_strings(Ast -> ast_identifier -> name, identifiers, identifier_num);
-                Ast -> ast_register = (struct reg*) malloc(sizeof(struct reg));
-                Ast -> ast_register -> name = malloc (sizeof(* Ast -> ast_register -> name) * 256);
-                Ast -> type = 12;
-                strcpy(Ast -> ast_register -> name, register_names[i - 1]);
+                Ast -> type = 13;
+                Ast -> stack_pos = i - 1;
             }
             break;
         case 12 : break;
+        case 13 : break;
     }
 }
 
@@ -1210,24 +1215,6 @@ static char *reglist[4] = { "r8", "r9", "r10", "r11" }; //List of registers
 int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[3] = {0, 0, 0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
-int used_buffers = 0;
-int maximum_buffers = 0;
-
-void save_registers ()
-{
-    if ((maximum_buffers - used_buffers) == 0) maximum_buffers ++;
-    used_buffers ++;
-    for (int i = 0; i < 6; i++) fprintf(outfile, "\tmov\t[BqclINUqKLPgNdXqTFiNEmMTrayXncME + %d], %s\n",
-                                        8 * i + 48 * (maximum_buffers - used_buffers), arg_func_list[i]);
-
-}
-
-void restore_registers ()
-{
-    for (int i = 0; i < 6; i++) fprintf(outfile, "\tmov\t%s, [BqclINUqKLPgNdXqTFiNEmMTrayXncME + %d]\n",
-                                                       arg_func_list[i], 8 * i + 48 * (maximum_buffers - used_buffers));
-    used_buffers --;
-}
 
 int new_register (void)
 {
@@ -1235,7 +1222,8 @@ int new_register (void)
     return used_registers - 1;
 }
 
-void free_register (void){
+void free_register (void)
+{
     if (used_registers > 0) used_registers --;
     return;
 }
@@ -1250,11 +1238,9 @@ struct reg compile (struct leaf *Ast)
         case 0 :
             for (int i = 0; i < Ast -> ast_functiondeclaration -> body_length; i++)
             {
-                replace_identifier_by_reg (Ast -> ast_functiondeclaration -> arguments,
-                                           arg_func_list,
-                                           Ast -> ast_functiondeclaration -> body,
-                                           Ast -> ast_functiondeclaration -> argnumber,
-                                           6);
+                replace_identifier_by_stack_pos (Ast -> ast_functiondeclaration -> arguments,
+                                                 Ast -> ast_functiondeclaration -> body,
+                                                 Ast -> ast_functiondeclaration -> argnumber);
                 Ast -> ast_functiondeclaration -> body ++;
             }
             Ast -> ast_functiondeclaration -> body -= Ast -> ast_functiondeclaration -> body_length;
@@ -1371,7 +1357,6 @@ struct reg compile (struct leaf *Ast)
                     }
                     char *arg1 = compile (Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body ++;
-                    puts(arg1);
                     char *arg2 = compile (Ast -> ast_function -> body).name;
                     used_functions[1] = 1;
                     Ast -> ast_function -> body --;
@@ -1395,7 +1380,6 @@ struct reg compile (struct leaf *Ast)
                 default :
                     if (!strcmp("print", Ast -> ast_function -> function))
                     {
-                        save_registers();
                         struct reg arg = compile(Ast -> ast_function -> body);
                         if (arg.type == 0)
                         {
@@ -1432,29 +1416,30 @@ struct reg compile (struct leaf *Ast)
                             }
                             else fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
                             free_register();
-                            restore_registers();
                         }
                         else if (arg.type == 1) fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
                         free(arg.name);
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
                     {
-                        save_registers();
                         for (int i = 0; i < Ast -> ast_function -> body_length; i++)
                         {
                             struct reg arg1 = compile(Ast -> ast_function -> body);
                             if (i >= 4) new_register();
-                            fprintf(outfile, "\tmov\t%s, %s\n", arg_func_list[i], arg1.name);
+                            fprintf(outfile, "\tpush\t%s\n", arg1.name);
                             for (int j = 0; j < 4; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
                             free(arg1.name);
                             Ast -> ast_function -> body ++;
                         }
                         Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
                         int i = new_register();
-                        restore_registers();
                         fprintf(outfile, "\tcall\t_%s\n\tmov\t%s, rax\n", Ast -> ast_function -> function, reglist[i]);
-                        for (int i = 4; i < Ast -> ast_function -> body_length; i++) free_register();
                         strcpy(outreg.name, reglist[i]);
+                        for (int i = 4; i < Ast -> ast_function -> body_length; i++)
+                        {
+                            free_register();
+                            fprintf(outfile, "\tpop\trcx\n");
+                        }
                         outreg.type = 0;
                     }
             }
@@ -1593,9 +1578,17 @@ struct reg compile (struct leaf *Ast)
         case 12:
         {
             int i = new_register();
-            fprintf(outfile, "\tmov·\t%s, %s\n", reglist[i], Ast -> ast_register -> name);
+            fprintf(outfile, "\tmov\t%s, %s\n", reglist[i], Ast -> ast_register -> name);
             outreg.type = Ast -> ast_register -> type;
             strcpy(outreg.name, reglist[i]);
+            break;
+        }
+        case 13:
+        {
+            int reg = new_register();
+            fprintf(outfile, "\tmov\t%s, [rsp + %d]\n", reglist[reg], 8 * (Ast -> stack_pos + 1));
+            strcpy(outreg.name, reglist[reg]);
+            outreg.type = 0;
             break;
         }
     }
@@ -1660,7 +1653,6 @@ void epilog()
                                                                       (symbol_table + i) -> name, (symbol_table + i) -> array_length);
         }
     }
-    fprintf(outfile, "\tBqclINUqKLPgNdXqTFiNEmMTrayXncME:\tresq %d", 6 * (maximum_buffers + 1));
     for (int i = 0; i < varind ; i ++)
     {
         if ((symbol_table + i) -> type == 3) freeall((symbol_table + i) -> ast);
