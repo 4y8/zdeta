@@ -1435,7 +1435,7 @@ struct reg compile (struct leaf *Ast)
                         int i = new_register();
                         fprintf(outfile, "\tcall\t_%s\n\tmov\t%s, rax\n", Ast -> ast_function -> function, reglist[i]);
                         strcpy(outreg.name, reglist[i]);
-                        for (int i = 4; i < Ast -> ast_function -> body_length; i++)
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++)
                         {
                             free_register();
                             fprintf(outfile, "\tpop\trcx\n");
@@ -1503,10 +1503,7 @@ struct reg compile (struct leaf *Ast)
                 for (int i = 0; i < Ast -> ast_else -> body_length; i ++)
                 {
                     struct reg comp = compile (Ast -> ast_else -> body);
-                    if (comp.type != -1)
-                    {
-                        strcpy (tmpreg.name, comp.name);
-                    }
+                    if (comp.type != -1) strcpy (tmpreg.name, comp.name);
                     Ast -> ast_else -> body ++;
                     free (comp.name);
                 }
@@ -1555,10 +1552,8 @@ struct reg compile (struct leaf *Ast)
             outreg.type = (symbol_table + varindex(Ast -> ast_identifier -> name)) -> type;
             break;
         }
-        case 9 :
-            break;
-        case 10 :
-            break;
+        case 9 : break;
+        case 10 : break;
         case 11 :
         {
             int ast_length =  Ast -> ast -> length;
@@ -1592,16 +1587,14 @@ struct reg compile (struct leaf *Ast)
             break;
         }
     }
-    if ((outreg.type != -1) && (Ast -> is_negative))
-    {
-        fprintf(outfile, "\tmov\trcx, -1\n\tmov\trax, %s\n\tmul\trcx\n\tmov\t%s, rax\n", outreg.name, outreg.name);
-    }
+    if ((outreg.type != -1) && (Ast -> is_negative)) fprintf(outfile, "\tmov\trcx, -1\n\tmov\trax, %s\n\tmul\trcx\n\tmov\t%s, rax\n", outreg.name, outreg.name);
     return outreg;
 }
 
 void epilog()
 {
     fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
+    used_registers = 0;
     for (int i = 0; i < varind ; i ++)
     {
         if ((symbol_table + i) -> type == 3)
