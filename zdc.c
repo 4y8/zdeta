@@ -1211,7 +1211,7 @@ void replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, 
     }
 }
 
-static char *reglist[4] = { "r8", "r9", "r10", "r11" }; //List of registers
+static char *reglist[6] = { "r8", "r9", "r10", "r11", "rcx", "rdx" }; //List of registers
 int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[3] = {0, 0, 0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
@@ -1264,7 +1264,7 @@ struct reg compile (struct leaf *Ast)
                     Ast -> ast_function -> body --;
                     if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
                     else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
-                    for (int j = 0; j < 4; j++) if (!strcmp(reglist[j], arg2)) free_register();
+                    for (int j = 0; j < 6; j++) if (!strcmp(reglist[j], arg2)) free_register();
                     free(arg2);
                     outreg.type = 0;
                     strcpy (outreg.name, arg1);
@@ -1274,14 +1274,14 @@ struct reg compile (struct leaf *Ast)
                 case '*' :{
                     char *arg1 = compile(Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body ++;
+                    fprintf(outfile, "\tmov\trax, %s\n", arg1);
                     char *arg2 = compile (Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body --;
-                    fprintf(outfile, "\tmov\trax, %s\n", arg1);
                     if (Ast -> ast_function -> function[0] == '*') fprintf(outfile, "\tmul\t%s\n", arg2);
                     else fprintf(outfile, "\tmov\trdx, 0\n\tdiv\t%s\n", arg2);
                     outreg.type = 0;
                     strcpy (outreg.name, "rax");
-                    for (int j = 0; j < 4; j++) if ((!strcmp(reglist[j], arg2)) || (!strcmp(reglist[j], arg1))) free_register();
+                    for (int j = 0; j < 6; j++) if ((!strcmp(reglist[j], arg2)) || (!strcmp(reglist[j], arg1))) free_register();
                     free(arg1);
                     free(arg2);
                     break;
@@ -1373,7 +1373,7 @@ struct reg compile (struct leaf *Ast)
                     free(arg1);
                     free(arg2);
                     free (cmp);
-                    for (int j = 0; j < 4; j++) if ((!strcmp(reglist[j], arg2)) || (!strcmp(reglist[j], arg1))) free_register();
+                    for (int j = 0; j < 6; j++) if ((!strcmp(reglist[j], arg2)) || (!strcmp(reglist[j], arg1))) free_register();
                     number_cmp ++;
                     break;
                 }
@@ -1422,24 +1422,33 @@ struct reg compile (struct leaf *Ast)
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
                     {
+                        char *args = malloc(256 * Ast -> ast_function -> body_length * sizeof(*args));
+
+                        Ast -> ast_function -> body += Ast -> ast_function -> body_length - 1;
                         for (int i = 0; i < Ast -> ast_function -> body_length; i++)
                         {
                             struct reg arg1 = compile(Ast -> ast_function -> body);
                             if (i >= 4) new_register();
-                            fprintf(outfile, "\tpush\t%s\n", arg1.name);
-                            for (int j = 0; j < 4; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
+                            for (int j = 0; j < 6; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
+                            strcpy(args + i, arg1.name);
                             free(arg1.name);
-                            Ast -> ast_function -> body ++;
+                            Ast -> ast_function -> body --;
                         }
-                        Ast -> ast_function -> body -= Ast -> ast_function -> body_length;
-                        int i = new_register();
-                        fprintf(outfile, "\tcall\t_%s\n\tmov\t%s, rax\n", Ast -> ast_function -> function, reglist[i]);
-                        strcpy(outreg.name, reglist[i]);
+                        fprintf(outfile, "\tpush\trax\n");
+                        for (int i = 0; i < 6; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+                        Ast -> ast_function -> body ++;
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i ++) fprintf(outfile, "\tpush\t%s\n", (args + i));
+                        fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
                         for (int i = 0; i < Ast -> ast_function -> body_length; i++)
                         {
                             free_register();
                             fprintf(outfile, "\tpop\trcx\n");
                         }
+                        for (int i = 5; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]);
+                        int i = new_register();
+                        strcpy(outreg.name, reglist[i]);
+                        fprintf(outfile, "\tmov\t%s, rax\n", reglist[i]);
+                        fprintf(outfile, "\tpop\trax\n");
                         outreg.type = 0;
                     }
             }
@@ -1616,6 +1625,7 @@ void epilog()
             fprintf(outfile, "\tmov\trax, %s\n", final.name);
             fprintf(outfile, "\tret\n");
             (symbol_table + i) -> ast -> ast_functiondeclaration -> body -= (symbol_table + i) -> ast -> ast_functiondeclaration -> body_length;
+            freeall((symbol_table + i) -> ast);
         }
     }
     fprintf(outfile, "section .data\n");
@@ -1645,10 +1655,6 @@ void epilog()
             else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
                                                                       (symbol_table + i) -> name, (symbol_table + i) -> array_length);
         }
-    }
-    for (int i = 0; i < varind ; i ++)
-    {
-        if ((symbol_table + i) -> type == 3) freeall((symbol_table + i) -> ast);
     }
 }
 
