@@ -759,12 +759,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             if (token.value[0] == '('){
                 size ++;
                 lex.base_value = size;
-                copy_ast(parsestatement(lex, ")", -1).body, (Ast + aindex), 0, 0);
+                struct parse argbody = parsestatement(lex, ")", -1);
+                for (int i = 0; i < argbody.size; i ++){
+                    copy_ast(argbody.body, Ast + aindex, i, i);
+                    freeall(argbody.body + i);
+                    aindex ++;
+                }
                 while (strcmp((tokens + size) -> value, ")")){
                     size ++;
                 }
+                free(argbody.body);
                 size ++;
-                aindex ++;
             }
             else if (token.value[0] == '\n'){
                 current_operator --;
@@ -1660,12 +1665,12 @@ void epilog()
 
 int main ( int argc, char *argv[] )
 {
-    if (argc != 2) exit(1); //If we don't have a file to comile exit.
+    if (argc != 2) exit(1); // If we don't have a file to comile exit.
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n");
+    fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
-    symbol_table  = malloc(20 * sizeof(struct variable));
+    symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     outfinal.size = 0;
     outfinal.body = malloc(20 * sizeof(struct leaf));
     while(1)
