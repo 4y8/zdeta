@@ -1428,37 +1428,35 @@ struct reg compile (struct leaf *Ast)
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
                     {
-                        char *args = malloc(256 * Ast -> ast_function -> body_length * sizeof(*args));
+                        char *args = malloc(256 * Ast -> ast_function -> body_length * sizeof(*args)); // allocate memory for the arguments
                         Ast -> ast_function -> body += Ast -> ast_function -> body_length - 1;
-                        for (int i = 0; i < Ast -> ast_function -> body_length; i++)
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) // Get all the arguments and save them in the "args" list
                         {
                             struct reg arg1 = compile(Ast -> ast_function -> body);
-                            for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
-                            strcpy(args + i, arg1.name);
+                            strcpy(args + i * 256, arg1.name);
                             free(arg1.name);
                             Ast -> ast_function -> body --;
                         }
-                        fprintf(outfile, "\tpush\trax\n");
+                        fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
                         for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
                         Ast -> ast_function -> body ++;
-                        for (int i = 0; i < Ast -> ast_function -> body_length; i ++) fprintf(outfile, "\tpush\t%s\n", (args + i));
-                        fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
-                        for (int i = 0; i < Ast -> ast_function -> body_length; i++)
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i ++)
                         {
-                            free_register();
-                            fprintf(outfile, "\tpop\trcx\n");
+                            fprintf(outfile, "\tpush\t%s\n", (args + i*256)); // Push the arguments to the stack
+                            for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], (args + i *256))) free_register(); // We don't need allocated registers anymore since we've pushed them to the stack
                         }
-                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]);
-                        int reg = new_register();
+                        fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) fprintf(outfile, "\tpop\trcx\n"); // Remove the arguments from the stack
+                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
+                        int reg = new_register(); // Allocate a register for the output
                         strcpy(outreg.name, reglist[reg]);
-                        fprintf(outfile, "\tmov\t%s, rax\n", reglist[reg]);
+                        fprintf(outfile, "\tmov\t%s, rax\n", reglist[reg]); // Put the result in the register
                         fprintf(outfile, "\tpop\trax\n");
-                        new_register();
                         outreg.type = 0;
                     }
             }
             break;
-        case 2 :
+        case 2 : // If the AST is a number allocate a register and put the number in it
         {
             int reg = new_register();
             fprintf(outfile, "\tmov\t%s, %d\n", reglist[reg], Ast -> ast_number -> value);
@@ -1665,10 +1663,10 @@ void epilog()
 
 int main ( int argc, char *argv[] )
 {
-    if (argc != 2) exit(1); // If we don't have a file to comile exit.
+    if (argc < 2) exit(1); // If we don't have a file to compile exit.
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
+    if (argc < 3) if (strcmp(argv[3], "-lib")) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     outfinal.size = 0;
@@ -1701,6 +1699,6 @@ int main ( int argc, char *argv[] )
     free(symbol_table); // Free malloc'd memory
     free(outfinal.body);
     fclose(outfile); // Close the output file
-    system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program
+    if (argc < 3) if (strcmp(argv[3], "-lib")) system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program if it's not a library
     exit(0);
 }
