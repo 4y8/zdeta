@@ -895,23 +895,23 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                         size ++;
                     } // Move at the end the block
-
                     size --;
                 }
                 aindex ++;
             }
             else if (strcmp(token.value, "if") == 0){
-                (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
-                lex.base_value = size + 1;
-                struct parse argcondition = parsestatement(lex, "\n", -1);
-                while(((tokens + size) -> value)[0] != '\n') size ++;
-                lex.base_value = size + 1;
-                struct parse argbody = parsestatement(lex, "switch_indent", -1);
+                (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement)); // First allocate memory for the if statement
                 (Ast + aindex) -> type = 6;
-                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                lex.base_value = size + 1; // Remove the if token
+                struct parse argcondition = parsestatement(lex, "\n", -1); // First parses the condition
+                while(((tokens + size) -> value)[0] != '\n') size ++; // remove tokens until we reached \n
+                lex.base_value = size + 1; // Remove the \n token
+                struct parse argbody = parsestatement(lex, "switch_indent", -1); // Now parses the body
+                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf)); // Allocate memory for the condition and the body
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0);
-                for (int i = 0; i < argbody.size; i ++){
+                copy_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0); // Copy the condition to the AST
+                for (int i = 0; i < argbody.size; i ++) // Now add the body to the AST
+                {
                     copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, 0, 0);
                     (Ast + aindex) -> ast_if -> body ++;
                     freeall(argbody.body);
@@ -919,7 +919,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 }
                 (Ast + aindex) -> ast_if -> body_length = argbody.size;
                 argbody.body -= argbody.size;
-                free(argbody.body);
                 (Ast + aindex) -> ast_if -> body -= argbody.size;
                 aindex ++;
                 int i = 0;
@@ -928,8 +927,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 {
                     if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
-                }
+                } // Move until the end of the indent block
                 size --;
+                free(argbody.body); // Free the memory we don't need
                 freeall(argcondition.body);
                 free(argcondition.body);
             }
