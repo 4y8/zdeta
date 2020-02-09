@@ -122,6 +122,7 @@ struct parse {
 struct variable{
     char               name[20];
     enum variable_type type;
+    enum variable_type func_type;
     int                is_static;
     int                array_length;
     int                At_the_end_0xA;
@@ -1323,57 +1324,71 @@ struct reg compile (struct leaf *Ast)
                         int index = varindex (Ast -> ast_function -> body -> ast_identifier -> name);
                         int index_of_identifier = Ast -> ast_function -> body -> ast_identifier -> has_index;
                         Ast -> ast_function -> body ++;
-                        if (Ast -> ast_function -> body -> length == 1)
+                        if ((Ast -> ast_function -> body -> type == 2)
+                            || (Ast -> ast_function -> body -> type == 1))
                         {
-                            struct reg arg = compile (Ast -> ast_function -> body);
-                            char *index_of_var = malloc (sizeof(*index_of_var) * 256);
-                            if (index_of_identifier == 1)
+                            if (Ast -> ast_function -> body -> length == 1)
                             {
-                                Ast -> ast_function -> body --;
-                                strcpy(index_of_var, compile(Ast -> ast_function -> body -> ast_identifier -> index).name);
-                                Ast -> ast_function -> body ++;
-                            }
-                            else strcpy(index_of_var, "0");
-                            if ((symbol_table + index) -> type == -1)
-                            {
-                                (symbol_table + index) -> array_length = 0;
-                                (symbol_table + index) -> type = arg.type;
-                                (symbol_table + index) -> is_static = 0;
-                            }
-                            else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0))
-                            {
-                                puts("Error : assigning a single value to an array.");
-                                exit(1);
-                            }
-                            fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
-                            free(index_of_var);
-                            free(arg.name);
-                            free_register();
-                        }
-                        else
-                        {
-                            for (int i = 0; i < Ast -> ast_function -> body -> length; i ++)
-                            {
-                                char *element = compile(Ast -> ast_function -> body).name;
-                                fprintf(outfile, "\tmov\t[%s + %d], %s\n",
-                                        (symbol_table + index) -> name,
-                                        i * 8,
-                                        element);
+                                struct reg arg = compile (Ast -> ast_function -> body);
+                                char *index_of_var = malloc (sizeof(*index_of_var) * 256);
+                                if (index_of_identifier == 1)
+                                {
+                                    Ast -> ast_function -> body --;
+                                    strcpy(index_of_var, compile(Ast -> ast_function -> body -> ast_identifier -> index).name);
+                                    Ast -> ast_function -> body ++;
+                                }
+                                else strcpy(index_of_var, "0");
+                                if ((symbol_table + index) -> type == -1)
+                                {
+                                    (symbol_table + index) -> array_length = 0;
+                                    (symbol_table + index) -> type = arg.type;
+                                    (symbol_table + index) -> is_static = 0;
+                                }
+                                else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0))
+                                {
+                                    puts("Error : assigning a single value to an array.");
+                                    exit(1);
+                                }
+                                else if ((symbol_table + index) -> type != 0)
+                                {
+                                    printf("Error : changed type of variable %s\n", (symbol_table + index) -> name);
+
+                                }
+                                fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
+                                free(index_of_var);
+                                free(arg.name);
                                 free_register();
-                                Ast -> ast_function -> body -> ast_number ++;
-                                free(element);
                             }
-                            Ast -> ast_function -> body -> ast_number -=Ast -> ast_function -> body -> length;
-                            if ((symbol_table + index) -> type == -1)
+                            else
                             {
-                                (symbol_table + index) -> type = 0;
-                                (symbol_table + index) -> array_length = Ast -> ast_function -> body -> length;
-                                (symbol_table + index) -> is_static = 0;
+                                for (int i = 0; i < Ast -> ast_function -> body -> length; i ++)
+                                {
+                                    char *element = compile(Ast -> ast_function -> body).name;
+                                    fprintf(outfile, "\tmov\t[%s + %d], %s\n",
+                                            (symbol_table + index) -> name,
+                                            i * 8,
+                                            element);
+                                    free_register();
+                                    Ast -> ast_function -> body -> ast_number ++;
+                                    free(element);
+                                }
+                                Ast -> ast_function -> body -> ast_number -=Ast -> ast_function -> body -> length;
+                                if ((symbol_table + index) -> type == -1)
+                                {
+                                    (symbol_table + index) -> type = 0;
+                                    (symbol_table + index) -> array_length = Ast -> ast_function -> body -> length;
+                                    (symbol_table + index) -> is_static = 0;
+                                }
                             }
+                        }
+                        else if (Ast -> ast_function -> body -> type == 4)
+                        {
+
                         }
                         free(cmp);
                         Ast -> ast_function -> body --;
                         break;
+
                     }
                     char *arg1 = compile (Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body ++;
