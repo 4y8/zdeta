@@ -1271,11 +1271,11 @@ struct reg compile (struct leaf *Ast)
                 case '+' :
                 {
                     int is_string_add = 0;
-                    if (Ast -> ast_function -> body -> type != 2) is_string_add = 1;
+                    if (Ast -> ast_function -> body -> type == 4) is_string_add = 1;
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
-                    if (Ast -> ast_function -> body -> type != 2) is_string_add = 1;
+                    if (Ast -> ast_function -> body -> type == 4) is_string_add = 1;
                     char *arg2 = malloc (sizeof(*arg2) * 256);
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
@@ -1683,10 +1683,10 @@ int main ( int argc, char *argv[] )
 {
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
     int is_lib = 0;
-    if (argc < 3) if (strcmp(argv[3], "-lib")) is_lib = 1;
+    if (argc >= 3) if (!strcmp(argv[2], "-lib")) is_lib = 1;
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    if (argc < 3) if (strcmp(argv[3], "-lib")) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
+    if (!is_lib) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
