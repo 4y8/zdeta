@@ -31,7 +31,8 @@ enum variable_type{ integer,
                     bool,
                     function_decl};
 // Define the structure for a token with a type and a name
-struct token {
+struct token
+{
     enum type type;
     char      value[50];
 };
@@ -701,13 +702,18 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     int current_operator = 0;
     int used_structures = 0;
     while (size <= lex.size){
-        if (((tokens + size - 1) -> value[0] == '-')
-            && ((((tokens + size - 2) -> type == 0)) || ((tokens + size - 2) -> type == 1) || (is_in_strings((tokens + size - 2) -> value, custom_functions, number_functions))))
+        if (size > 0)
         {
+            if (((tokens + size - 1) -> value[0] == '-')
+                && ((((tokens + size - 2) -> type == 0))
+                    || ((tokens + size - 2) -> type == 1)
+                    || (is_in_strings((tokens + size - 2) -> value, custom_functions, number_functions))))
+            {
             (Ast + aindex) -> is_negative = 1;
             current_operator --;
+            }
+            else (Ast + aindex) -> is_negative = 0;
         }
-        else (Ast + aindex) -> is_negative = 0;
         if ((max_length != -1) && (max_length <= aindex)) break;
         struct token token;
         token.type = (tokens + size) -> type;
@@ -1063,8 +1069,10 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     freeall(argbody.body);
                     argbody.body ++;
                 }
+                argbody.body -=  arg_number[index_of_function - 1];
                 (Ast + aindex) -> ast_function -> body -= arg_number[index_of_function - 1];
                 size += 1 + argbody.used_tokens;
+                free(argbody.body);
             }
             else
             {
@@ -1262,14 +1270,20 @@ struct reg compile (struct leaf *Ast)
                 case '-' :
                 case '+' :
                 {
+                    int is_string_add = 0;
+                    if (Ast -> ast_function -> body -> type != 2) is_string_add = 1;
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
+                    if (Ast -> ast_function -> body -> type != 2) is_string_add = 1;
                     char *arg2 = malloc (sizeof(*arg2) * 256);
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
-                    if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
-                    else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
+                    if (!is_string_add)
+                    {
+                        if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
+                        else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
+                    }
                     for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg2)) free_register();
                     free(arg2);
                     outreg.type = 0;
@@ -1603,9 +1617,9 @@ struct reg compile (struct leaf *Ast)
     return outreg;
 }
 
-void epilog()
+void epilog(int is_lib)
 {
-    fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
+    if (!is_lib) fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
     used_registers = 0;
     for (int i = 0; i < varind ; i ++)
     {
@@ -1629,34 +1643,38 @@ void epilog()
             fprintf(outfile, "\tret\n");
             (symbol_table + i) -> ast -> ast_functiondeclaration -> body -= (symbol_table + i) -> ast -> ast_functiondeclaration -> body_length;
             freeall((symbol_table + i) -> ast);
+            free((symbol_table + i) -> ast);
         }
     }
-    fprintf(outfile, "section .data\n");
-    for (int i = 0; i < varind ; i ++)
+    if (!is_lib)
     {
-        if ((symbol_table + i) -> is_static == 1)
+        fprintf(outfile, "section .data\n");
+        for (int i = 0; i < varind ; i ++)
         {
-            char *end = malloc(10 * sizeof(end));
-            if ((symbol_table + i) -> At_the_end_0xA == 1) strcpy(end, "0xA,0");
-            else strcpy(end, "10");
-            fprintf(outfile, "\t%s:\t db '%s', %s\n\t%s_len:\tequ $-%s\n",
-                    (symbol_table + i) -> name,
-                    (symbol_table + i) -> string,
-                    end,
-                    (symbol_table + i) -> name,
-                    (symbol_table + i) -> name);
-            free(end);
+            if ((symbol_table + i) -> is_static == 1)
+            {
+                char *end = malloc(10 * sizeof(end));
+                if ((symbol_table + i) -> At_the_end_0xA == 1) strcpy(end, "0xA,0");
+                else strcpy(end, "10");
+                fprintf(outfile, "\t%s:\t db '%s', %s\n\t%s_len:\tequ $-%s\n",
+                        (symbol_table + i) -> name,
+                        (symbol_table + i) -> string,
+                        end,
+                        (symbol_table + i) -> name,
+                        (symbol_table + i) -> name);
+                free(end);
+            }
         }
-    }
-    fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n");
-    for (int i = 0; i < varind ; i ++)
-    {
-        if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == 0))
+        fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n");
+        for (int i = 0; i < varind ; i ++)
         {
-            if ((symbol_table + i) -> array_length == 0) fprintf(outfile, "\t%s:\tresq 1\n",
-                                                                 (symbol_table + i) -> name);
-            else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
-                                                                      (symbol_table + i) -> name, (symbol_table + i) -> array_length);
+            if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == 0))
+            {
+                if ((symbol_table + i) -> array_length == 0) fprintf(outfile, "\t%s:\tresq 1\n",
+                                                                     (symbol_table + i) -> name);
+                else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
+                                                                          (symbol_table + i) -> name, (symbol_table + i) -> array_length);
+            }
         }
     }
 }
@@ -1664,11 +1682,14 @@ void epilog()
 int main ( int argc, char *argv[] )
 {
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
+    int is_lib = 0;
+    if (argc < 3) if (strcmp(argv[3], "-lib")) is_lib = 1;
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (argc < 3) if (strcmp(argv[3], "-lib")) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
+    for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
     outfinal.size = 0;
     outfinal.body = malloc(20 * sizeof(struct leaf));
     while(1)
@@ -1690,15 +1711,15 @@ int main ( int argc, char *argv[] )
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++){
         check(outfinal.body);
-        free(compile(outfinal.body).name);
+        if ((((argc >= 3) && (outfinal.body -> type == 0)) || (argc < 3))) free(compile(outfinal.body).name);
         freeall(outfinal.body);
         outfinal.body ++;
     }
     outfinal.body -= outfinal.size;
-    epilog();
+    epilog(is_lib);
     free(symbol_table); // Free malloc'd memory
     free(outfinal.body);
     fclose(outfile); // Close the output file
-    if (argc < 3) if (strcmp(argv[3], "-lib")) system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program if it's not a library
+    if (!is_lib) system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program if it's not a library
     exit(0);
 }
