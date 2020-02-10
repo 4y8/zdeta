@@ -1,3 +1,8 @@
+/*
+ * Here is the Zdeta compiler A.K.A "zdc"
+ * By @Yul3n
+ */
+
 // Import the libraries
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,31 +10,31 @@
 #include <string.h>
 
 // Define an enumeration to list all the possible token types
-enum type { operator,
-            separator,
-            identifier,
-            number,
-            keyword,
-            string };
+enum type { OPERATOR,
+            SEPARATOR,
+            IDENTIFIER,
+            NUMBER,
+            KEYWORD,
+            STRING };
 // Define an enumeration to list all the possible instruction types
-enum instruction_type{ function,
-                       function_call,
-                       znumber,
-                       zbool,
-                       zstring,
-                       vardeclaration,
-                       ifstatement,
-                       whilestatement,
-                       zidentifier,
-                       elsestatement,
-                       elifstatement,
-                       ast,
-                       reg,
-                       stack_pos};
-enum variable_type{ integer,
-                    char_list,
-                    bool,
-                    function_decl};
+enum instruction_type{ FUNCTION,
+                       FUNCTION_CALL,
+                       ZNUMBER,
+                       ZBOOL,
+                       ZSTRING,
+                       VARDECLARATION,
+                       IFSTATEMENT,
+                       WHILESTATEMENT,
+                       ZIDENTIFIER,
+                       ELSESTATEMENT,
+                       ELIFSTATEMENT,
+                       AST,
+                       REG,
+                       STACK_POS};
+enum variable_type{ INTEGER,
+                    CHAR_LIST,
+                    BOOL,
+                    FUNCTION_DECL};
 // Define the structure for a token with a type and a name
 struct token
 {
@@ -227,8 +232,8 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            if (iskeyword(buffer)) (tokens+k) -> type = 4;
-            else (tokens + k) -> type = 2;
+            if (iskeyword(buffer)) (tokens+k) -> type = KEYWORD;
+            else (tokens + k) -> type = IDENTIFIER;
             if (!strcmp("BqclINUqKLPgNdXqTFiNEmMTrayXncME", buffer))
             {
                 puts("Error : can't name a variable BqclINUqKLPgNdXqTFiNEmMTrayXncME.");
@@ -248,7 +253,7 @@ struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
             fseek(fp1, j - 1, SEEK_SET);
             fgets(buffer, i + 1, fp1);
             fseek(fp1, l - 1, SEEK_SET);
-            (tokens + k) -> type = 3;
+            (tokens + k) -> type = NUMBER;
             strcpy((tokens + k) -> value, buffer);
             k++;
         }
@@ -474,7 +479,7 @@ void printAST(struct leaf *AST, int tabs){
 void freeall(struct leaf *AST){
     switch(AST -> type){
         case 0:
-            for (int i = 0; i < AST -> ast_functiondeclaration -> body_length; i++){
+            for (int i = 0; i < AST -> ast_functiondeclaration -> body_length; i++) {
                 freeall(AST -> ast_functiondeclaration -> body);
                 AST -> ast_functiondeclaration -> body ++;
             }
@@ -1253,9 +1258,9 @@ struct reg compile (struct leaf *Ast)
         case 0 :
             for (int i = 0; i < Ast -> ast_functiondeclaration -> body_length; i++)
             {
-                replace_identifier_by_stack_pos (Ast -> ast_functiondeclaration -> arguments,
-                                                 Ast -> ast_functiondeclaration -> body,
-                                                 Ast -> ast_functiondeclaration -> argnumber);
+                replace_identifier_by_stack_pos(Ast -> ast_functiondeclaration -> arguments,
+                                                Ast -> ast_functiondeclaration -> body,
+                                                Ast -> ast_functiondeclaration -> argnumber);
                 Ast -> ast_functiondeclaration -> body ++;
             }
             Ast -> ast_functiondeclaration -> body -= Ast -> ast_functiondeclaration -> body_length;
@@ -1341,7 +1346,7 @@ struct reg compile (struct leaf *Ast)
                                 if ((symbol_table + index) -> type == -1)
                                 {
                                     (symbol_table + index) -> array_length = 0;
-                                    (symbol_table + index) -> type = arg.type;
+                                    (symbol_table + index) -> type = 0;
                                     (symbol_table + index) -> is_static = 0;
                                 }
                                 else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0))
@@ -1383,7 +1388,10 @@ struct reg compile (struct leaf *Ast)
                         }
                         else if (Ast -> ast_function -> body -> type == 4)
                         {
+                            for (int i = 0; i < strlen(Ast -> ast_function -> body -> ast_string -> value); i ++)
+                            {
 
+                            }
                         }
                         free(cmp);
                         Ast -> ast_function -> body --;
@@ -1632,7 +1640,8 @@ struct reg compile (struct leaf *Ast)
     return outreg;
 }
 
-void epilog(int is_lib)
+void
+epilog(int is_lib)
 {
     if (!is_lib) fprintf(outfile, "\tmov\teax,1\n\tmov\tebx,0\n\tint\t80h\n");
     used_registers = 0;
