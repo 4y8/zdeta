@@ -1131,7 +1131,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     return(output);
 }
 
-void check(struct leaf *Ast)
+void
+check(struct leaf *Ast)
 {
     if (Ast -> type == 1){
         if (strcmp(Ast -> ast_function -> function, "=") == 0){
@@ -1151,7 +1152,8 @@ void check(struct leaf *Ast)
 }
 
 // Functions for the actual compiler
-void replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int identifier_num)
+void
+replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int identifier_num)
 {
     switch (Ast -> type)
     {
@@ -1236,19 +1238,22 @@ int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0
 int used_functions[3] = {0, 0, 0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
-int new_register (void)
+int
+new_register (void)
 {
     used_registers ++;
     return used_registers - 1;
 }
 
-void free_register (void)
+void
+free_register (void)
 {
     if (used_registers > 0) used_registers --;
     return;
 }
 
-struct reg compile (struct leaf *Ast)
+struct reg
+compile (struct leaf *Ast)
 {
     struct reg outreg;
     outreg.name = malloc (sizeof(*outreg.name) * 256);
@@ -1380,7 +1385,6 @@ struct reg compile (struct leaf *Ast)
                                 Ast -> ast_function -> body -> ast_number -=Ast -> ast_function -> body -> length;
                                 if ((symbol_table + index) -> type == -1)
                                 {
-                                    (symbol_table + index) -> type = 0;
                                     (symbol_table + index) -> array_length = Ast -> ast_function -> body -> length;
                                     (symbol_table + index) -> is_static = 0;
                                 }
@@ -1388,8 +1392,9 @@ struct reg compile (struct leaf *Ast)
                         }
                         else if (Ast -> ast_function -> body -> type == 4)
                         {
-                            for (int i = 0; i < strlen(Ast -> ast_function -> body -> ast_string -> value); i ++)
-                            {
+                            int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);
+                            if((symbol_table + index) -> array_length < string_length) (symbol_table + index) -> array_length = string_length;
+                            for(int i = 0; i < string_length; i ++){
 
                             }
                         }
@@ -1520,6 +1525,7 @@ struct reg compile (struct leaf *Ast)
         case 5 :
             strcpy((symbol_table + varind) -> name, Ast -> ast_vardeclaration -> name);
             (symbol_table + varind) -> type = -1;
+            (symbol_table + varind) -> array_length = 0;
             varind ++;
             break;
         case 6 :
@@ -1703,7 +1709,8 @@ epilog(int is_lib)
     }
 }
 
-int main ( int argc, char *argv[] )
+int
+main ( int argc, char *argv[] )
 {
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
     int is_lib = 0;
@@ -1745,5 +1752,5 @@ int main ( int argc, char *argv[] )
     free(outfinal.body);
     fclose(outfile); // Close the output file
     if (!is_lib) system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program if it's not a library
-    exit(0);
+    return 0;
 }
