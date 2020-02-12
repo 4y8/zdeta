@@ -174,7 +174,8 @@ int is_in_strings(char in[], char list[][10], int length)
 }
 
 // A function to check the operator precedence of an input string
-int operatorPrecedence (char operator[]){
+int
+operatorPrecedence (char operator[]){
     int precedence = -1; // If the input is not an operator or is empty, return -1
     if (((strcmp(operator,   "&")) == 0) ||
         ((strcmp(operator,   "|")) == 0) ||
@@ -202,7 +203,8 @@ int operatorPrecedence (char operator[]){
     return precedence;
 }
 
-int varindex (char var[]){
+int
+varindex (char var[]){
     for (int i = 0; i < 20; i++){
         if (strcmp((symbol_table + i) -> name, var) == 0){
             return i;
@@ -212,7 +214,8 @@ int varindex (char var[]){
     exit(1);
 }
 // The Lexer
-struct lexline lexer(FILE *fp1, int min_indent, struct token *tokens){
+struct lexline
+lexer(FILE *fp1, int min_indent, struct token *tokens){
     struct lexline lex;
     char c = ' ';
     int i = 0, j = 0, k = 0, l = 0;
@@ -1392,16 +1395,21 @@ compile (struct leaf *Ast)
                         }
                         else if (Ast -> ast_function -> body -> type == 4)
                         {
-                            int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);
-                            if((symbol_table + index) -> type == -1) (symbol_table + index) -> type = 1;
-                            else if ((symbol_table + index) -> type != 1){
+                            int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);          // If it's a string first gets it size
+                            if ((symbol_table + index) -> type == -1) (symbol_table + index) -> type = CHAR_LIST;    // Then if the variable haven't been initialize yet give it the string type
+                            else if ((symbol_table + index) -> type != CHAR_LIST){                                   // If it has been initialized with another type, throw an error and exit
                                 puts("Error : changing variable type.");
                                 exit(1);
                             }
-                            if((symbol_table + index) -> array_length < string_length) (symbol_table + index) -> array_length = string_length;
+                            if ((symbol_table + index) -> array_length < string_length)
+                                (symbol_table + index) -> array_length = string_length + 1;
                             for(int i = 0; i < string_length; i ++){
-                                
+                                fprintf(outfile, "\tmov\tBYTE [%s + %d], %d\n",
+                                        (symbol_table + index) -> name,
+                                        i,
+                                        Ast -> ast_function -> body -> ast_string -> value[i]);
                             }
+                            fprintf(outfile, "\tmov\tBYTE [%s + %d], 0\n", (symbol_table + index) -> name, string_length);
                         }
                         free(cmp);
                         Ast -> ast_function -> body --;
@@ -1470,7 +1478,7 @@ compile (struct leaf *Ast)
                             else fprintf(outfile, "\tmov\trsi, %s\n\tmov\trdi, int_to_str\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", arg.name);
                             free_register();
                         }
-                        else if (arg.type == 1) fprintf(outfile, "\tmov\teax,4\n\tmov\tebx,1\n\tmov\tecx,%s\n\tmov\tedx,%s_len\n\tint\t80h\n", arg.name, arg.name);
+                        else if (arg.type == 1) fprintf(outfile, "\tmov\trdi, %s\n\tcall\tputs\n", arg.name);
                         free(arg.name);
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
@@ -1594,22 +1602,21 @@ compile (struct leaf *Ast)
         }
         case 8 :
         {
-            if ((symbol_table + varindex (Ast -> ast_identifier -> name)) -> type == -1)
-            {
-                puts("Error : used of non initialized variable.");
-                exit(1);
-            }
+            int index = varindex (Ast -> ast_identifier -> name);
             int reg = new_register();
-            if (Ast -> ast_identifier -> has_index == 1)
-            {
-                char *index = compile(Ast -> ast_identifier -> index).name;
-                fprintf(outfile, "\tmov\t%s, [%s + %s * 8]\n", reglist[reg], Ast -> ast_identifier -> name, index);
-                free_register();
-                free(index);
-            }
-            else fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
+            if ((symbol_table + index) -> type == -1) {
+                puts("Error : used unisialized variable.");
+                exit(1);
+            } else if ((symbol_table + index) -> type == NUMBER) {
+                if (Ast -> ast_identifier -> has_index == 1) {
+                    char *index = compile(Ast -> ast_identifier -> index).name;
+                    fprintf(outfile, "\tmov\t%s, [%s + %s * 8]\n", reglist[reg], Ast -> ast_identifier -> name, index);
+                    free_register();
+                    free(index);
+                } else fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
+            } else fprintf(outfile, "\tmov\t%s, %s\n", reglist[reg], Ast -> ast_identifier -> name);
             strcpy (outreg.name, reglist[reg]);
-            outreg.type = (symbol_table + varindex(Ast -> ast_identifier -> name)) -> type;
+            outreg.type = (symbol_table + index) -> type;
             break;
         }
         case 9 : break;
@@ -1690,7 +1697,7 @@ epilog(int is_lib)
             {
                 char *end = malloc(10 * sizeof(end));
                 if ((symbol_table + i) -> At_the_end_0xA == 1) strcpy(end, "0xA,0");
-                else strcpy(end, "10");
+                else strcpy(end, "0");
                 fprintf(outfile, "\t%s:\t db '%s', %s\n\t%s_len:\tequ $-%s\n",
                         (symbol_table + i) -> name,
                         (symbol_table + i) -> string,
@@ -1710,6 +1717,9 @@ epilog(int is_lib)
                 else if ((symbol_table + i) -> array_length != 0) fprintf(outfile, "\t%s:\t resq %d\n",
                                                                           (symbol_table + i) -> name, (symbol_table + i) -> array_length);
             }
+            else if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == CHAR_LIST)){
+                fprintf(outfile, "\t%s:\tresb %d\n", (symbol_table + i) -> name, (symbol_table + i) -> array_length);
+            }
         }
     }
 }
@@ -1722,7 +1732,7 @@ main ( int argc, char *argv[] )
     if (argc >= 3) if (!strcmp(argv[2], "-lib")) is_lib = 1;
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    if (!is_lib) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\nmain:\n"); // Print the necessary components for the beginning of a nasm program
+    if (!is_lib) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\n\textern\tputs\nmain:\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
