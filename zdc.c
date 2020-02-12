@@ -1393,9 +1393,14 @@ compile (struct leaf *Ast)
                         else if (Ast -> ast_function -> body -> type == 4)
                         {
                             int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);
+                            if((symbol_table + index) -> type == -1) (symbol_table + index) -> type = 1;
+                            else if ((symbol_table + index) -> type != 1){
+                                puts("Error : changing variable type.");
+                                exit(1);
+                            }
                             if((symbol_table + index) -> array_length < string_length) (symbol_table + index) -> array_length = string_length;
                             for(int i = 0; i < string_length; i ++){
-
+                                
                             }
                         }
                         free(cmp);
