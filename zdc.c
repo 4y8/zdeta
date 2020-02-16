@@ -1236,7 +1236,7 @@ replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int i
     }
 }
 
-static char *reglist[8] = { "r8", "r9", "r10", "r11", "rcx", "rdx", "rdi", "rsi" }; //List of registers
+static char *reglist[8] = { "r8", "r9", "r10", "r11", "rcx", "rdx", "rdi", "rsi" }; // List of registers
 int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[3] = {0, 0, 0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
@@ -1293,15 +1293,20 @@ compile (struct leaf *Ast)
                     char *arg2 = malloc (sizeof(*arg2) * 256);
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
-                    if (!is_string_add)
-                    {
+                    if (is_string_add) {
+                        char *name = malloc(sizeof(char) * 256);
+                        int reg    = new_register();
+                        fprintf(outfile, "\tmov\trdi,%s\n\tmov\trsi,%s\n\tcall\tstrcat\n", arg1, arg2);
+                        strcpy(outreg.name, "rax");
+                        outreg.type = CHAR_LIST;
+                    } else {
                         if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
                         else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
+                        strcpy (outreg.name, arg1);
+                        outreg.type = 0;
                     }
                     for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg2)) free_register();
                     free(arg2);
-                    outreg.type = 0;
-                    strcpy (outreg.name, arg1);
                     break;
                 }
                 case '/' :
@@ -1732,7 +1737,7 @@ main ( int argc, char *argv[] )
     if (argc >= 3) if (!strcmp(argv[2], "-lib")) is_lib = 1;
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    if (!is_lib) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\n\textern\tputs\nmain:\n"); // Print the necessary components for the beginning of a nasm program
+    if (!is_lib) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\n\textern\tputs\n\textern\tstrcat\nmain:\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
