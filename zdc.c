@@ -1286,10 +1286,17 @@ compile (struct leaf *Ast)
                 {
                     int is_string_add = 0;
                     if (Ast -> ast_function -> body -> type == 4) is_string_add = 1;
+                    else if (Ast -> ast_function -> body -> type == ZIDENTIFIER)
+                        if ((symbol_table + varindex(Ast -> ast_function -> body -> ast_identifier -> name)) -> type == CHAR_LIST) is_string_add = 1;
                     char *arg1 = malloc (sizeof(*arg1) * 256);
                     strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
-                    if (Ast -> ast_function -> body -> type == 4) is_string_add = 1;
+                    if ((Ast -> ast_function -> body -> type != 4) && (is_string_add)) {
+                        puts("Error : Adding a string and a number.");
+                        exit(1);
+                    }
+                    else if (Ast -> ast_function -> body -> type == ZIDENTIFIER)
+                        if ((symbol_table + varindex(Ast -> ast_function -> body -> ast_identifier -> name)) -> type == CHAR_LIST) is_string_add = 1;
                     char *arg2 = malloc (sizeof(*arg2) * 256);
                     strcpy(arg2, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body --;
@@ -1343,19 +1350,18 @@ compile (struct leaf *Ast)
                         int index_of_identifier = Ast -> ast_function -> body -> ast_identifier -> has_index;
                         Ast -> ast_function -> body ++;
                         if ((Ast -> ast_function -> body -> type == 2)
-                            || (Ast -> ast_function -> body -> type == 1))
+                            || (Ast -> ast_function -> body -> type == 1)
+                            || (Ast -> ast_function -> body -> type == 8))
                         {
                             if (Ast -> ast_function -> body -> length == 1)
                             {
                                 struct reg arg = compile (Ast -> ast_function -> body);
                                 char *index_of_var = malloc (sizeof(*index_of_var) * 256);
-                                if (index_of_identifier == 1)
-                                {
+                                if (index_of_identifier == 1) {
                                     Ast -> ast_function -> body --;
                                     strcpy(index_of_var, compile(Ast -> ast_function -> body -> ast_identifier -> index).name);
                                     Ast -> ast_function -> body ++;
-                                }
-                                else strcpy(index_of_var, "0");
+                                } else strcpy(index_of_var, "0");
                                 if ((symbol_table + index) -> type == -1)
                                 {
                                     (symbol_table + index) -> array_length = 0;
@@ -1374,8 +1380,8 @@ compile (struct leaf *Ast)
                                 }
                                 fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
                                 free(index_of_var);
+                                for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg.name)) free_register();
                                 free(arg.name);
-                                free_register();
                             }
                             else
                             {
@@ -1394,7 +1400,8 @@ compile (struct leaf *Ast)
                                 if ((symbol_table + index) -> type == -1)
                                 {
                                     (symbol_table + index) -> array_length = Ast -> ast_function -> body -> length;
-                                    (symbol_table + index) -> is_static = 0;
+                                    (symbol_table + index) -> is_static    = 0;
+                                    (symbol_table + index) -> type         = 0;
                                 }
                             }
                         }
@@ -1610,16 +1617,30 @@ compile (struct leaf *Ast)
             int index = varindex (Ast -> ast_identifier -> name);
             int reg = new_register();
             if ((symbol_table + index) -> type == -1) {
-                puts("Error : used unisialized variable.");
+                printf("Error : used unisialized variable %s.\n", Ast -> ast_identifier -> name);
                 exit(1);
-            } else if ((symbol_table + index) -> type == NUMBER) {
+            } else if ((symbol_table + index) -> type == INTEGER) {
                 if (Ast -> ast_identifier -> has_index == 1) {
                     char *index = compile(Ast -> ast_identifier -> index).name;
                     fprintf(outfile, "\tmov\t%s, [%s + %s * 8]\n", reglist[reg], Ast -> ast_identifier -> name, index);
                     free_register();
                     free(index);
                 } else fprintf(outfile, "\tmov\t%s, [%s]\n", reglist[reg], Ast -> ast_identifier -> name);
-            } else fprintf(outfile, "\tmov\t%s, %s\n", reglist[reg], Ast -> ast_identifier -> name);
+            } else {
+                if (Ast -> ast_identifier -> has_index == 1) {
+                    char *index = compile(Ast -> ast_identifier -> index).name;
+                    int reg2 = new_register();
+                    fprintf(outfile, "\tmov\t%sb, [%s + %s]\n\tmov BYTE\t[char_buffer], %sb\n\tmov\t%s, char_buffer\n",
+                            reglist[reg2],
+                            Ast -> ast_identifier -> name,
+                            index,
+                            reglist[reg2],
+                            reglist[reg]);
+                    free_register();
+                    free(index);
+                }
+                else fprintf(outfile, "\tmov\t%s, %s\n", reglist[reg], Ast -> ast_identifier -> name);
+            }
             strcpy (outreg.name, reglist[reg]);
             outreg.type = (symbol_table + index) -> type;
             break;
@@ -1712,7 +1733,7 @@ epilog(int is_lib)
                 free(end);
             }
         }
-        fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n");
+        fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n\tchar_buffer:\tresb 2\n");
         for (int i = 0; i < varind ; i ++)
         {
             if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == 0))
@@ -1737,7 +1758,8 @@ main ( int argc, char *argv[] )
     if (argc >= 3) if (!strcmp(argv[2], "-lib")) is_lib = 1;
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
-    if (!is_lib) fprintf(outfile, "section\t.text\nglobal\tmain\nextern\tprintf\n\textern\tputs\n\textern\tstrcat\nmain:\n"); // Print the necessary components for the beginning of a nasm program
+    if (!is_lib) fprintf(outfile,
+                         "section\t.text\nglobal\tmain\nextern\tprintf\n\textern\tputs\n\textern\tstrcat\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
