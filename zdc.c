@@ -1365,7 +1365,7 @@ compile (struct leaf *Ast)
                                 if ((symbol_table + index) -> type == -1)
                                 {
                                     (symbol_table + index) -> array_length = 0;
-                                    (symbol_table + index) -> type = 0;
+                                    (symbol_table + index) -> type = arg.type;
                                     (symbol_table + index) -> is_static = 0;
                                 }
                                 else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0))
@@ -1378,7 +1378,8 @@ compile (struct leaf *Ast)
                                     printf("Error : changed type of variable %s\n", (symbol_table + index) -> name);
 
                                 }
-                                fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
+                                if (arg.type == 0) fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
+                                else fprintf(outfile, "\tmov\trdi, %s\n\tmov\trsi, %s\n\tmov\trdx, 256\n\tcall\tstrncpy\n", (symbol_table + index) -> name, arg.name);
                                 free(index_of_var);
                                 for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg.name)) free_register();
                                 free(arg.name);
@@ -1744,7 +1745,7 @@ epilog(int is_lib)
                                                                           (symbol_table + i) -> name, (symbol_table + i) -> array_length);
             }
             else if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == CHAR_LIST)){
-                fprintf(outfile, "\t%s:\tresb %d\n", (symbol_table + i) -> name, (symbol_table + i) -> array_length);
+                fprintf(outfile, "\t%s:\tresb 256\n", (symbol_table + i) -> name);
             }
         }
     }
@@ -1759,7 +1760,7 @@ main ( int argc, char *argv[] )
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
-                         "section\t.text\nglobal\tmain\nextern\tprintf\n\textern\tputs\n\textern\tstrcat\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
+                         "section\t.text\nglobal\tmain\n\textern\tprintf\n\textern\tputs\n\textern\tstrcat\n\textern\tstrncpy\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
@@ -1782,7 +1783,7 @@ main ( int argc, char *argv[] )
         free(out.body);
     }
     fclose(fp1);
-    for (int i = 0; i < outfinal.size; i++){
+    for (int i = 0; i < outfinal.size; i++) {
         check(outfinal.body);
         if ((((argc >= 3) && (outfinal.body -> type == 0)) || (argc < 3))) free(compile(outfinal.body).name);
         freeall(outfinal.body);
