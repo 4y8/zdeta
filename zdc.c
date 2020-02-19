@@ -1049,6 +1049,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 strcpy((Ast + aindex) -> ast_function -> function, "print");
                 while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
                 freeall(argbody.body);
+                free(argbody.body);
                 aindex ++;
                 used_structures --;
             }
@@ -1285,35 +1286,58 @@ compile (struct leaf *Ast)
                 case '+' :
                 {
                     int is_string_add = 0;
-                    if (Ast -> ast_function -> body -> type == 4) is_string_add = 1;
+                    struct reg arg1 = compile(Ast -> ast_function -> body);
+                    if ((Ast -> ast_function -> body -> type == 4) || (arg1.type == CHAR_LIST)) is_string_add = 1;
                     else if (Ast -> ast_function -> body -> type == ZIDENTIFIER)
                         if ((symbol_table + varindex(Ast -> ast_function -> body -> ast_identifier -> name)) -> type == CHAR_LIST) is_string_add = 1;
-                    char *arg1 = malloc (sizeof(*arg1) * 256);
-                    strcpy(arg1, compile (Ast -> ast_function -> body).name);
                     Ast -> ast_function -> body ++;
-                    if ((Ast -> ast_function -> body -> type != 4) && (is_string_add)) {
+                    if ((Ast -> ast_function -> body -> type == 2) && (is_string_add)) {
                         puts("Error : Adding a string and a number.");
                         exit(1);
                     }
-                    else if (Ast -> ast_function -> body -> type == ZIDENTIFIER)
-                        if ((symbol_table + varindex(Ast -> ast_function -> body -> ast_identifier -> name)) -> type == CHAR_LIST) is_string_add = 1;
-                    char *arg2 = malloc (sizeof(*arg2) * 256);
-                    strcpy(arg2, compile (Ast -> ast_function -> body).name);
+                    struct reg arg2 = compile (Ast -> ast_function -> body);
                     Ast -> ast_function -> body --;
                     if (is_string_add) {
-                        char *name = malloc(sizeof(char) * 256);
-                        int reg    = new_register();
-                        fprintf(outfile, "\tmov\trdi,%s\n\tmov\trsi,%s\n\tcall\tstrcat\n", arg1, arg2);
-                        strcpy(outreg.name, "rax");
+                        fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
+                        for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+                        fprintf(outfile,
+                                "\tmov\trdi, buffer\n"
+                                "\tmov\trsi, hello\n"
+                                "\tmov\trdx, 256\n"
+                                "\tcall\tstrncpy\n");
+                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
+                        fprintf(outfile, "\tpop\trax\n"); // Save registers on the stack
+                        fprintf(outfile,
+                                "\tmov\trdi,%s\n"
+                                "\tmov\trsi,%s\n"
+                                "\tcall\tstrcat\n"
+                                "\tmov\trdi, out_buffer\n"
+                                "\tmov\trsi, rax\n"
+                                "\tmov\trdx, 256\n"
+                                "\tcall\tstrncpy\n",
+                                arg1.name,
+                                arg2.name);
+                        fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
+                        for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+                        fprintf(outfile,
+                                "\tmov\trdi, hello\n"
+                                "\tmov\trsi, buffer\n"
+                                "\tmov\trdx, 256\n"
+                                "\tcall\tstrncpy\n");
+                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
+                        fprintf(outfile, "\tpop\trax\n"); // Save registers on the stack
+                        strcpy(outreg.name, "out_buffer");
                         outreg.type = CHAR_LIST;
+                        for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
                     } else {
-                        if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1, arg2);
-                        else fprintf(outfile, "\tsub\t%s, %s\n", arg1, arg2);
-                        strcpy (outreg.name, arg1);
+                        if (Ast -> ast_function -> function[0] == '+') fprintf(outfile, "\tadd\t%s, %s\n", arg1.name, arg2.name);
+                        else fprintf(outfile, "\tsub\t%s, %s\n", arg1.name, arg2.name);
+                        strcpy (outreg.name, arg1.name);
                         outreg.type = 0;
                     }
-                    for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg2)) free_register();
-                    free(arg2);
+                    for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg2.name)) free_register();
+                    free(arg1.name);
+                    free(arg2.name);
                     break;
                 }
                 case '/' :
@@ -1397,7 +1421,7 @@ compile (struct leaf *Ast)
                                     Ast -> ast_function -> body -> ast_number ++;
                                     free(element);
                                 }
-                                Ast -> ast_function -> body -> ast_number -=Ast -> ast_function -> body -> length;
+                                Ast -> ast_function -> body -> ast_number -= Ast -> ast_function -> body -> length;
                                 if ((symbol_table + index) -> type == -1)
                                 {
                                     (symbol_table + index) -> array_length = Ast -> ast_function -> body -> length;
@@ -1734,7 +1758,7 @@ epilog(int is_lib)
                 free(end);
             }
         }
-        fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n\tchar_buffer:\tresb 2\n");
+        fprintf(outfile, "\tint_to_str:\t db '%%d',0xA\nsection .bss\n\tchar_buffer:\tresb 2\n\tbuffer:\tresb 256\n\tout_buffer:\tresb 256\n");
         for (int i = 0; i < varind ; i ++)
         {
             if (((symbol_table + i) -> is_static == 0) && ((symbol_table + i) -> type == 0))
