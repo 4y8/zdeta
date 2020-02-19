@@ -486,6 +486,8 @@ void freeall(struct leaf *AST){
                 freeall(AST -> ast_functiondeclaration -> body);
                 AST -> ast_functiondeclaration -> body ++;
             }
+            AST -> ast_functiondeclaration -> body -= AST -> ast_functiondeclaration -> body_length;
+            free(AST -> ast_functiondeclaration -> body);
             free(AST -> ast_functiondeclaration);
             break;
         case 1:
@@ -1545,6 +1547,7 @@ compile (struct leaf *Ast)
                         fprintf(outfile, "\tmov\t%s, rax\n", reglist[reg]); // Put the result in the register
                         fprintf(outfile, "\tpop\trax\n");
                         outreg.type = 0;
+                        free(args);
                     }
             }
             break;
@@ -1737,6 +1740,7 @@ epilog(int is_lib)
             (symbol_table + i) -> ast -> ast_functiondeclaration -> body -= (symbol_table + i) -> ast -> ast_functiondeclaration -> body_length;
             freeall((symbol_table + i) -> ast);
             free((symbol_table + i) -> ast);
+            free(final.name);
         }
     }
     if (!is_lib)
