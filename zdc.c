@@ -145,8 +145,8 @@ struct reg // the structure of a register and its name
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
-char *keywords[9] = {"let", "print", "while", "if", "else",
-                  "elif", "swap", "match", "iter"}; // List of keybords
+char *keywords[10] = {"let", "print", "while", "if", "else",
+                  "elif", "swap", "match", "iter", "read"}; // List of keybords
 FILE *fp1;
 FILE *outfile;
 struct variable *symbol_table;
@@ -1039,7 +1039,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 freeall(argcondition.body);
                 free(argcondition.body);
             }
-            else if (strcmp(token.value, "print") == 0){
+            else if ((!strcmp(token.value, "print")) || (!strcmp(token.value, "read"))){
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 size ++;
                 lex.base_value = size;
@@ -1047,8 +1047,18 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
-                ((Ast + aindex) -> ast_function ) -> body_length = 1;
-                strcpy((Ast + aindex) -> ast_function -> function, "print");
+                (Ast + aindex) -> ast_function -> body_length = 1;
+                if (argbody.size != 0) {
+                    strcpy((Ast + aindex) -> ast_function -> function, "print");
+                    /* If read is called with an argument, we print the argument and then call read */
+                    if (!strcmp(token.value, "read")) {
+                        aindex ++;
+                        (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                        (Ast + aindex) -> type = 1;
+                        (Ast + aindex) -> ast_function -> body_length = 0;
+                        strcpy((Ast + aindex) -> ast_function -> function, "read");
+                    }
+                }
                 while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
                 freeall(argbody.body);
                 free(argbody.body);
@@ -1308,7 +1318,7 @@ compile (struct leaf *Ast)
                                 "\tmov\trdx, 256\n"
                                 "\tcall\tstrncpy\n");
                         for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
-                        fprintf(outfile, "\tpop\trax\n"); // Save registers on the stack
+                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
                         fprintf(outfile,
                                 "\tmov\trdi,%s\n"
                                 "\tmov\trsi,%s\n"
@@ -1327,7 +1337,7 @@ compile (struct leaf *Ast)
                                 "\tmov\trdx, 256\n"
                                 "\tcall\tstrncpy\n");
                         for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
-                        fprintf(outfile, "\tpop\trax\n"); // Save registers on the stack
+                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
                         strcpy(outreg.name, "out_buffer");
                         outreg.type = CHAR_LIST;
                         for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
