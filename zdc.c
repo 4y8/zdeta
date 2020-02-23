@@ -159,7 +159,7 @@ int number_functions = 0;
 void
 error(char error[])
 {
-    printf("\033[0;31mError\033[0m : %s", error);
+    printf("\033[1;31mError\033[0m : %s\n", error);
     exit(1);
 }
 
@@ -908,7 +908,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     } // Move at the end the block
                     size --;
                 }
-                aindex ++;
             }
             else if (strcmp(token.value, "if") == 0){
                 (Ast + aindex) -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement)); // First allocate memory for the if statement
@@ -931,7 +930,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_if -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_if -> body -= argbody.size;
-                aindex ++;
                 int i = 0;
                 used_structures = argbody.used_structures;
                 while (i <= argbody.used_structures)
@@ -967,7 +965,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 argbody.body -= argbody.size;
                 free(argbody.body);
                 (Ast + aindex) -> ast_while -> body -= argbody.size;
-                aindex ++;
                 int i = 0;
                 used_structures = argbody.used_structures;
                 while (i <= argbody.used_structures)
@@ -1004,7 +1001,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     size ++;
                 }
                 size --;
-                aindex ++;
             }
             else if (strcmp(token.value, "elif") == 0){
                 (Ast + aindex) -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
@@ -1028,7 +1024,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_elif -> body_length = argbody.size;
                 argbody.body -= argbody.size;
                 (Ast + aindex) -> ast_elif -> body -= argbody.size;
-                aindex ++;
                 while (strcmp("switch_indent", (tokens + size) -> value)) size ++;
                 freeall(argcondition.body);
                 free(argcondition.body);
@@ -1040,32 +1035,31 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 struct parse argbody = parsestatement (lex, "\n", -1);
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 (Ast + aindex) -> type = 1;
+                strcpy((Ast + aindex) -> ast_function -> function, token.value);
                 if (argbody.size != 0) {
-                    strcpy((Ast + aindex) -> ast_function -> function, "print");
-                    copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                     (Ast + aindex) -> ast_function -> body_length = 1;
                     /* If read is called with an argument, we print the argument and then call read */
                     if (!strcmp(token.value, "read")) {
-                        aindex ++;
-                        (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                        (Ast + aindex) -> type = 1;
-                        (Ast + aindex) -> ast_function -> body_length = 0;
-                        strcpy((Ast + aindex) -> ast_function -> function, "read");
+                        (Ast + aindex) -> ast_function -> body -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
+                        (Ast + aindex) -> ast_function -> body -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                        copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
+                        (Ast + aindex) -> ast_function -> body -> type = 1;
+                        (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
+                        strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
+                    } else {
+                        copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                     }
                     freeall(argbody.body);
-                    free(argbody.body);
-                }
-                else if (strcmp(token.value, "read")) {
-                    error("Using the print function without an argument");
-                }
+                } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
+                /* If we call read without an argument, print nothing */
                 else {
-                    strcpy((Ast + aindex) -> ast_function -> function, "read");
                     (Ast + aindex) -> ast_function -> body_length = 0;
                 }
+                free(argbody.body);
                 while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
-                aindex ++;
                 used_structures --;
             }
+            aindex ++;
             used_structures ++;
             size ++;
         }
@@ -1080,11 +1074,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function -> body_length = arg_number[index_of_function - 1];
                 strcpy((Ast + aindex) -> ast_function -> function, token.value);
                 (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(arg_number[index_of_function - 1] * sizeof(struct leaf));
-                if (argbody.size < arg_number[index_of_function - 1])
-                {
-                    printf("Error : Not enough argument for the function %s.\n", custom_functions[index_of_function - 1]);
-                    exit (1);
-                }
+                if (argbody.size < arg_number[index_of_function - 1]) error("Not enough argument for a function");
                 for(int i = 0; i < arg_number[index_of_function - 1]; i ++)
                 {
                     copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
@@ -1217,13 +1207,6 @@ replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int i
                     body_length = Ast -> ast -> length;
                     Astbody = Ast -> ast;
                     break;
-                case 2 : break;
-                case 3 : break;
-                case 4 : break;
-                case 5 : break;
-                case 8 : break;
-                case 12 : break;
-                case 13: break;
             }
             for (int i = 0; i < body_length; i++)
             {
@@ -1372,13 +1355,13 @@ compile (struct leaf *Ast)
                 case '<' :
                 {
                     char *cmp = malloc (sizeof(*cmp) * 3);
-                    if ((Ast -> ast_function -> function[0] == '<') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "le");
-                    else if (Ast -> ast_function -> function[0] == '<') strcpy (cmp, "l");
+                    if      ((Ast -> ast_function -> function[0] == '<') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "le");
+                    else if (Ast -> ast_function  -> function[0] == '<') strcpy (cmp, "l");
                     else if ((Ast -> ast_function -> function[0] == '>') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "ge");
-                    else if (Ast -> ast_function -> function[0] == '>') strcpy (cmp, "g");
+                    else if (Ast -> ast_function  -> function[0] == '>') strcpy (cmp, "g");
                     else if ((Ast -> ast_function -> function[0] == '=') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "e");
                     else if ((Ast -> ast_function -> function[0] == '!') && (Ast -> ast_function -> function[1] == '=')) strcpy (cmp, "ne");
-                    else if (Ast -> ast_function -> function[0] == '=')
+                    else if (Ast -> ast_function  -> function[0] == '=')
                     {
                         int index = varindex (Ast -> ast_function -> body -> ast_identifier -> name);
                         int index_of_identifier = Ast -> ast_function -> body -> ast_identifier -> has_index;
@@ -1436,7 +1419,7 @@ compile (struct leaf *Ast)
                         {
                             int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);          // If it's a string first gets it size
                             if ((symbol_table + index) -> type == -1) (symbol_table + index) -> type = CHAR_LIST;    // Then if the variable haven't been initialize yet give it the string type
-                            else if ((symbol_table + index) -> type != CHAR_LIST)                                   // If it has been initialized with another type, throw an error and exit
+                            else if ((symbol_table + index) -> type != CHAR_LIST)                                    // If it has been initialized with another type, throw an error and exit
                                 error("changing variable type.");
                             if ((symbol_table + index) -> array_length < string_length)
                                 (symbol_table + index) -> array_length = string_length + 1;
@@ -1519,6 +1502,7 @@ compile (struct leaf *Ast)
                         free(arg.name);
                     }
                     else if (!strcmp("read", Ast -> ast_function -> function)) {
+                        if (Ast -> ast_function -> body_length != 0) compile(Ast -> ast_function -> body);
                         outreg.type = CHAR_LIST;
                         strcpy(outreg.name, "out_buffer");
                         fprintf(outfile,
@@ -1653,10 +1637,8 @@ compile (struct leaf *Ast)
         {
             int index = varindex (Ast -> ast_identifier -> name);
             int reg = new_register();
-            if ((symbol_table + index) -> type == -1) {
-                printf("Error : used unisialized variable %s.\n", Ast -> ast_identifier -> name);
-                exit(1);
-            } else if ((symbol_table + index) -> type == INTEGER) {
+            if ((symbol_table + index) -> type == -1) error("used unisialized variable");
+            else if ((symbol_table + index) -> type == INTEGER) {
                 if (Ast -> ast_identifier -> has_index == 1) {
                     char *index = compile(Ast -> ast_identifier -> index).name;
                     fprintf(outfile, "\tmov\t%s, [%s + %s * 8]\n", reglist[reg], Ast -> ast_identifier -> name, index);
@@ -1793,7 +1775,14 @@ main ( int argc, char *argv[] )
 {
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
     int is_lib = 0;
-    if (argc >= 3) if (!strcmp(argv[2], "-lib")) is_lib = 1;
+    char *outcommand = malloc (sizeof(*outcommand) * 256);
+    if (argc >= 3) {
+        if (!strcmp(argv[2], "-lib")) is_lib = 1;
+        if (!strcmp(argv[2], "-o")) {
+            if (argc < 4) error("the -o option need an argument");
+            sprintf(outcommand, "nasm -f elf64 ./out.asm && gcc -o %s ./out.o -no-pie && rm out.asm && rm out.o", argv[3]);
+        } else strcpy(outcommand, "nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie && rm out.asm && rm out.o");
+    } else strcpy(outcommand, "nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie && rm out.asm && rm out.o");
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
@@ -1821,9 +1810,8 @@ main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++) {
-        printAST(outfinal.body, 0);
         check(outfinal.body);
-        if ((((argc >= 3) && (outfinal.body -> type == 0)) || (argc < 3))) free(compile(outfinal.body).name);
+        free(compile(outfinal.body).name);
         freeall(outfinal.body);
         outfinal.body ++;
     }
@@ -1831,7 +1819,8 @@ main ( int argc, char *argv[] )
     epilog(is_lib);
     free(symbol_table); // Free malloc'd memory
     free(outfinal.body);
-    fclose(outfile); // Close the output file
-    if (!is_lib) system("nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie"); //Assemble and link the produced program if it's not a library
+    fclose(outfile);    // Close the output file
+    if (!is_lib) system(outcommand); //Assemble and link the produced program if it's not a library
+    printf("\033[1;32mDone!\033[0m\n");
     return 0;
 }
