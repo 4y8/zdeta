@@ -156,9 +156,16 @@ char custom_functions[10][10];
 int arg_number[10];
 int number_functions = 0;
 
+void
+error(char error[])
+{
+    printf("\033[0;31mError\033[0m : %s", error);
+    exit(1);
+}
+
 // A function to check if a string is a keyword
 int iskeyword (char in[]){
-    for(int i = 0; i < 9; i++) if (strcmp(keywords[i], in) == 0) return 1;
+    for(int i = 0; i < 10; i++) if (strcmp(keywords[i], in) == 0) return 1;
     return 0;
 }
 // A function to check if a char is in a char list
@@ -210,8 +217,7 @@ varindex (char var[]){
             return i;
         }
     }
-    puts("Error : using non declarated variable.");
-    exit(1);
+    error("Using non declarated variable.");
 }
 // The Lexer
 struct lexline
@@ -237,11 +243,6 @@ lexer(FILE *fp1, int min_indent, struct token *tokens){
             fseek(fp1, l - 1, SEEK_SET);
             if (iskeyword(buffer)) (tokens+k) -> type = KEYWORD;
             else (tokens + k) -> type = IDENTIFIER;
-            if (!strcmp("BqclINUqKLPgNdXqTFiNEmMTrayXncME", buffer))
-            {
-                puts("Error : can't name a variable BqclINUqKLPgNdXqTFiNEmMTrayXncME.");
-                exit(1);
-            }
             strcpy((tokens + k) -> value, buffer);
             k++;
         }
@@ -261,11 +262,7 @@ lexer(FILE *fp1, int min_indent, struct token *tokens){
             k++;
         }
         else if (isinchars(opps, c)){
-            if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '='))
-            {
-                puts("Error : Unexpected combination of opperators");
-                exit(1);
-            }
+            if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '=')) error("Unexpected combination of opperators");
             (tokens + k) -> type = 0;
             d = fgetc(fp1);
             if ((c == '=') && (d == '=')) strcpy((tokens + k) -> value, "==");
@@ -852,10 +849,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
                 if ((tokens + size + 1) -> type != 2)
-                {
-                    puts("Error : can't assign to something that is not an identifier.");
-                    exit(1);
-                }
+                    error("Can't assign to something that is not an identifier.");
                 int is_function = 0;
                 int size_before = size;
                 while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) { // We first search if we have a "=>" token on the line
@@ -1045,11 +1039,11 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 lex.base_value = size;
                 struct parse argbody = parsestatement (lex, "\n", -1);
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
                 (Ast + aindex) -> type = 1;
-                (Ast + aindex) -> ast_function -> body_length = 1;
                 if (argbody.size != 0) {
                     strcpy((Ast + aindex) -> ast_function -> function, "print");
+                    copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
+                    (Ast + aindex) -> ast_function -> body_length = 1;
                     /* If read is called with an argument, we print the argument and then call read */
                     if (!strcmp(token.value, "read")) {
                         aindex ++;
@@ -1058,10 +1052,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         (Ast + aindex) -> ast_function -> body_length = 0;
                         strcpy((Ast + aindex) -> ast_function -> function, "read");
                     }
+                    freeall(argbody.body);
+                    free(argbody.body);
+                }
+                else if (strcmp(token.value, "read")) {
+                    error("Using the print function without an argument");
+                }
+                else {
+                    strcpy((Ast + aindex) -> ast_function -> function, "read");
+                    (Ast + aindex) -> ast_function -> body_length = 0;
                 }
                 while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
-                freeall(argbody.body);
-                free(argbody.body);
                 aindex ++;
                 used_structures --;
             }
@@ -1153,14 +1154,14 @@ check(struct leaf *Ast)
     if (Ast -> type == 1){
         if (strcmp(Ast -> ast_function -> function, "=") == 0){
             if (Ast -> ast_function -> body -> type != 8){
-                puts("Error : assigning a value to a non variable element.");
+                error("assigning a value to a non variable element.");
                 exit(1);
             }
         }
     }
     else if (Ast -> type == 9) {
         if (((Ast - 1) -> type != 6) && ((Ast - 1) -> type != 10)){
-            puts("Error : using an else without an if.");
+            error("using an else without an if.");
             exit(1);
         }
     }
@@ -1303,10 +1304,7 @@ compile (struct leaf *Ast)
                     else if (Ast -> ast_function -> body -> type == ZIDENTIFIER)
                         if ((symbol_table + varindex(Ast -> ast_function -> body -> ast_identifier -> name)) -> type == CHAR_LIST) is_string_add = 1;
                     Ast -> ast_function -> body ++;
-                    if ((Ast -> ast_function -> body -> type == 2) && (is_string_add)) {
-                        puts("Error : Adding a string and a number.");
-                        exit(1);
-                    }
+                    if ((Ast -> ast_function -> body -> type == 2) && (is_string_add)) error("Adding a string and a number.");
                     struct reg arg2 = compile (Ast -> ast_function -> body);
                     Ast -> ast_function -> body --;
                     if (is_string_add) {
@@ -1404,16 +1402,8 @@ compile (struct leaf *Ast)
                                     (symbol_table + index) -> type = arg.type;
                                     (symbol_table + index) -> is_static = 0;
                                 }
-                                else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0))
-                                {
-                                    puts("Error : assigning a single value to an array.");
-                                    exit(1);
-                                }
-                                else if ((symbol_table + index) -> type != 0)
-                                {
-                                    printf("Error : changed type of variable %s\n", (symbol_table + index) -> name);
-
-                                }
+                                else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0)) error("Assigning a single value to an array.");
+                                else if ((symbol_table + index) -> type != 0) error("Changed type of variable");
                                 if (arg.type == 0) fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
                                 else fprintf(outfile, "\tmov\trdi, %s\n\tmov\trsi, %s\n\tmov\trdx, 256\n\tcall\tstrncpy\n", (symbol_table + index) -> name, arg.name);
                                 free(index_of_var);
@@ -1446,10 +1436,8 @@ compile (struct leaf *Ast)
                         {
                             int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);          // If it's a string first gets it size
                             if ((symbol_table + index) -> type == -1) (symbol_table + index) -> type = CHAR_LIST;    // Then if the variable haven't been initialize yet give it the string type
-                            else if ((symbol_table + index) -> type != CHAR_LIST){                                   // If it has been initialized with another type, throw an error and exit
-                                puts("Error : changing variable type.");
-                                exit(1);
-                            }
+                            else if ((symbol_table + index) -> type != CHAR_LIST)                                   // If it has been initialized with another type, throw an error and exit
+                                error("changing variable type.");
                             if ((symbol_table + index) -> array_length < string_length)
                                 (symbol_table + index) -> array_length = string_length + 1;
                             for(int i = 0; i < string_length; i ++){
@@ -1529,6 +1517,17 @@ compile (struct leaf *Ast)
                         }
                         else if (arg.type == 1) fprintf(outfile, "\tmov\trdi, %s\n\tcall\tputs\n", arg.name);
                         free(arg.name);
+                    }
+                    else if (!strcmp("read", Ast -> ast_function -> function)) {
+                        outreg.type = CHAR_LIST;
+                        strcpy(outreg.name, "out_buffer");
+                        fprintf(outfile,
+                                "\tmov\teax, 3\n"
+                                "\tmov\tebx, 0\n"
+                                "\txor\tecx, ecx\n"
+                                "\tmov\tecx, out_buffer\n"
+                                "\tmov\tedx, 256\n"
+                                "\tint\t80h\n");
                     }
                     else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
                     {
@@ -1822,6 +1821,7 @@ main ( int argc, char *argv[] )
     }
     fclose(fp1);
     for (int i = 0; i < outfinal.size; i++) {
+        printAST(outfinal.body, 0);
         check(outfinal.body);
         if ((((argc >= 3) && (outfinal.body -> type == 0)) || (argc < 3))) free(compile(outfinal.body).name);
         freeall(outfinal.body);
