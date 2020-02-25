@@ -1,0 +1,5 @@
+let fact a =>
+  if a == 0
+    1
+  else
+    a * fact(a - 1)
