@@ -1,6 +1,7 @@
 /*
  * Here is the Zdeta compiler A.K.A "zdc"
  * By @Yul3n
+ * Usage zdc "program to compile" (optionnal : -o "name of the output file")
  */
 
 // Import the libraries
@@ -145,8 +146,8 @@ struct reg // the structure of a register and its name
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
-char *keywords[10] = {"let", "print", "while", "if", "else",
-                  "elif", "swap", "match", "iter", "read"}; // List of keybords
+char *keywords[11] = {"let", "print", "while", "if", "else",
+                  "elif", "string", "match", "iter", "read", "int"}; // List of keybords
 FILE *fp1;
 FILE *outfile;
 struct variable *symbol_table;
@@ -262,7 +263,8 @@ lexer(FILE *fp1, int min_indent, struct token *tokens){
             k++;
         }
         else if (isinchars(opps, c)){
-            if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '=')) error("Unexpected combination of opperators");
+            if (k >= 1)
+                if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '=')) error("Unexpected combination of opperators");
             (tokens + k) -> type = 0;
             d = fgetc(fp1);
             if ((c == '=') && (d == '=')) strcpy((tokens + k) -> value, "==");
@@ -356,146 +358,59 @@ lexer(FILE *fp1, int min_indent, struct token *tokens){
     return lex;
 }
 
-void tabulation(int tabs){
-    for(int i = 0; i < tabs; i++) printf("  ");
-    return;
-}
-
-void printAST(struct leaf *AST, int tabs){
-    tabulation(tabs);
-    switch(AST -> type){
-        case 0:
-            printf ("declare function : %s \n", AST -> ast_functiondeclaration -> name);
-            printf ("arguments : ");
-            for (int i = 0; i < AST -> ast_functiondeclaration -> argnumber; i ++) {
-                printf("%s ", AST -> ast_functiondeclaration -> arguments[i]);
-            }
-            printf("\n");
-            tabulation(tabs + 1);
-            puts("body :");
-            for (int i = 0; i < AST -> ast_functiondeclaration -> body_length; i++){
-                printAST(AST -> ast_functiondeclaration -> body, tabs + 2);
-                AST -> ast_functiondeclaration -> body ++;
-            }
-            AST -> ast_functiondeclaration -> body -= AST -> ast_functiondeclaration -> body_length;
-            break;
-        case 1:
-            printf("function : %s \n", AST -> ast_function -> function);
-            for (int i = 0; i < (AST -> ast_function ) -> body_length; i++){
-                tabulation(tabs + 1);
-                printf ("argument n°%d : \n",i);
-                printAST (AST -> ast_function -> body, tabs + 2);
-                AST -> ast_function -> body ++;
-            }
-            AST -> ast_function -> body -= (AST -> ast_function ) -> body_length;
-            break;
-        case 2:
-            printf("number : %i\n", AST -> ast_number-> value);
-            break;
-        case 3:
-            printf("bool : ");
-            if (AST -> ast_bool -> value == 0){
-                printf("False\n");
-            }
-            else {
-                printf("True\n");
-            }
-            break;
-        case 4:
-            printf("string : \"%s\"\n", AST -> ast_string -> value);
-            break;
-        case 5:
-            printf("variable declaration : %s \n", AST -> ast_vardeclaration -> name);
-            break;
-        case 6:
-            printf("if : \n");
-            tabulation(tabs + 1);
-            printf("condition : \n");
-            printAST(AST -> ast_if -> condition, tabs + 2);
-            tabulation(tabs + 1);
-            printf("body : \n");
-            for (int i = 0; i < AST -> ast_if -> body_length; i++){
-                printAST(AST -> ast_if -> body, tabs + 2);
-                AST -> ast_if -> body ++;
-            }
-            AST -> ast_if -> body -= AST -> ast_if -> body_length;
-            break;
-        case 7:
-            printf("while : \n");
-            tabulation(tabs + 1);
-            printf("condition : \n");
-            printAST(AST -> ast_while -> condition, tabs + 2);
-            tabulation(tabs + 1);
-            printf("body : \n");
-            for (int i = 0; i < AST -> ast_while -> body_length; i++){
-                printAST(AST -> ast_while -> body, tabs + 2);
-                AST -> ast_while -> body ++;
-            }
-            AST -> ast_while -> body -= AST -> ast_while -> body_length;
-            break;
-        case 8:
-            printf("identifier : %s\n", AST -> ast_identifier -> name);
-            break;
-        case 9:
-            printf("else : \n");
-            tabulation(tabs + 1);
-            printf("body : \n");
-            for (int i = 0; i < AST -> ast_else -> body_length; i++){
-                printAST(AST -> ast_else -> body, tabs + 2);
-                AST -> ast_else -> body ++;
-            }
-            AST -> ast_else -> body -= AST -> ast_else -> body_length;
-            break;
-        case 10:
-            printf("elif : \n");
-            tabulation(tabs + 1);
-            printf("condition : \n");
-            printAST(AST -> ast_elif -> condition, tabs + 2);
-            tabulation(tabs + 1);
-            for (int i = 0; i < AST -> ast_elif -> body_length; i++){
-                printAST(AST -> ast_elif -> body, tabs + 2);
-                AST -> ast_else -> body ++;
-            }
-            AST -> ast_elif -> body -= AST -> ast_elif -> body_length;
-            break;
-        case 11:
-        {
-            int j = AST -> ast -> length;
-            for (int i = 0; i < j; i++)
-            {
-                printAST (AST -> ast, 0);
-                AST -> ast ++;
-            }
-            AST -> ast -= j;
-            break;
-        }
-        case 12:
-            printf("register : %s\n", AST -> ast_register -> name);
-            break;
-        case 13: break;
-    }
-}
-
 void freeall(struct leaf *AST){
     switch(AST -> type){
         case 0:
-            for (int i = 0; i < AST -> ast_functiondeclaration -> body_length; i++) {
-                freeall(AST -> ast_functiondeclaration -> body);
-                AST -> ast_functiondeclaration -> body ++;
-            }
-            AST -> ast_functiondeclaration -> body -= AST -> ast_functiondeclaration -> body_length;
-            free(AST -> ast_functiondeclaration -> body);
-            free(AST -> ast_functiondeclaration);
-            break;
         case 1:
-            for (int i = 0; i < AST -> ast_function -> body_length; i++){
-                freeall(AST -> ast_function -> body);
-                AST -> ast_function -> body ++;
+        case 6:
+        case 7:
+        case 9:
+        case 10: {
+            int body_length = 0;
+            int has_condition = 1;
+            struct leaf *body;
+            struct leaf *condition;
+            if (AST -> type == IFSTATEMENT) {
+                condition = AST -> ast_if -> condition;
+                body_length = AST -> ast_if -> body_length;
+                body = AST -> ast_if -> body;
+            } else if (AST -> type == WHILESTATEMENT) {
+                condition = AST -> ast_while -> condition;
+                body_length = AST -> ast_while -> body_length;
+                body = AST -> ast_while -> body;
+            } else if (AST -> type == ELSESTATEMENT) {
+                has_condition = 0;
+                body_length = AST -> ast_else -> body_length;
+                body = AST -> ast_else -> body;
+            } else if (AST -> type == ELIFSTATEMENT){
+                condition = AST -> ast_elif -> condition;
+                body_length = AST -> ast_elif -> body_length;
+                body = AST -> ast_elif -> body;
+            } else if (AST -> type == FUNCTION_CALL){
+                has_condition = 0;
+                body_length = AST -> ast_function -> body_length;
+                body = AST -> ast_function -> body;
+            } else {
+                has_condition = 0;
+                body_length = AST -> ast_functiondeclaration -> body_length;
+                body = AST -> ast_functiondeclaration -> body;
             }
-            AST -> ast_function -> body -= AST -> ast_function -> body_length;
-            free(AST -> ast_function -> body);
-            free(AST -> ast_function);
+            for (int i = 0; i < body_length; i++){
+                freeall(body + i);
+            }
+            free(body);
+            if (has_condition) {
+                freeall(condition);
+                free(condition);
+            }
+            if      (AST -> type == IFSTATEMENT)    free(AST -> ast_if);
+            else if (AST -> type == ELSESTATEMENT)  free(AST -> ast_else);
+            else if (AST -> type == ELIFSTATEMENT)  free(AST -> ast_elif);
+            else if (AST -> type == WHILESTATEMENT) free(AST -> ast_while);
+            else if (AST -> type == FUNCTION_CALL)  free(AST -> ast_function);
+            else                                    free(AST -> ast_functiondeclaration);
             break;
+        }
         case 2:
             free(AST -> ast_number);
             break;
@@ -508,50 +423,13 @@ void freeall(struct leaf *AST){
         case 5:
             free(AST -> ast_vardeclaration);
             break;
-        case 6:
-            for (int i = 0; i < AST -> ast_if -> body_length; i++){
-                freeall(AST -> ast_if -> body);
-                AST -> ast_if -> body ++;
-            }
-            AST -> ast_if -> body -= AST -> ast_if -> body_length;
-            free(AST -> ast_if -> body);
-            freeall(AST -> ast_if -> condition);
-            free(AST -> ast_if -> condition);
-            free(AST -> ast_if);
-            break;
-        case 7:
-            for (int i = 0; i < AST -> ast_while -> body_length; i++){
-                freeall(AST -> ast_while -> body);
-                AST -> ast_while -> body ++;
-            }
-            free(AST -> ast_while -> condition);
-            freeall(AST -> ast_while -> condition);
-            free(AST -> ast_while);
-            break;
+
         case 8:
-            if (1 == AST -> ast_identifier -> has_index)
-            {
+            if (AST -> ast_identifier -> has_index) {
                 freeall(AST -> ast_identifier -> index);
                 free(AST -> ast_identifier -> index);
             }
             free(AST -> ast_identifier);
-            break;
-        case 9:
-            for (int i = 0; i < AST -> ast_else -> body_length; i++){
-                freeall(AST -> ast_else -> body);
-                AST -> ast_else -> body ++;
-            }
-            AST -> ast_else -> body -= AST -> ast_else -> body_length;
-            free(AST -> ast_else -> body);
-            free(AST -> ast_else);
-            break;
-        case 10 :
-            for (int i = 0; i < AST -> ast_elif -> body_length; i++){
-                freeall(AST -> ast_elif -> body);
-                AST -> ast_elif -> body ++;
-            }
-            freeall(AST -> ast_elif -> condition);
-            free(AST -> ast_elif);
             break;
         case 11:
             for (int i = 0; i < AST -> ast -> length; i++){
@@ -1249,7 +1127,6 @@ void
 free_register (void)
 {
     if (used_registers > 0) used_registers --;
-    return;
 }
 
 struct reg
