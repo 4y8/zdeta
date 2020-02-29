@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include "config.h"
 
 // Define an enumeration to list all the possible token types
 enum type { OPERATOR,
@@ -701,11 +702,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             {
                 size ++;
                 int arraysize = 0;
-                while ((tokens + size) -> value[0] != ']')
-                {
-                    if ((tokens + size) -> type == 3) arraysize ++;
-                    size ++;
-                }
+                while ((tokens + size) -> value[0] != ']') arraysize ++ ,size ++;
                 size -= arraysize;
                 (Ast + aindex) -> type = 2;
                 (Ast + aindex) -> ast_number = (struct number*) malloc(arraysize * sizeof(struct number));
@@ -1651,15 +1648,21 @@ int
 main ( int argc, char *argv[] )
 {
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
+    char *linker       = malloc(256 * sizeof(*linker));
+    char *linker_flags = malloc(256 * sizeof(*linker_flags));
+    if (USE_MUSL)      strcpy(linker, "musl-gcc");
+    else               strcpy(linker, "gcc");
+    if (STATIC_LINKED) strcpy(linker_flags, "-static");
+    else               strcpy(linker_flags, "");
     int is_lib = 0;
     char *outcommand = malloc (sizeof(*outcommand) * 256);
     if (argc >= 3) {
         if (!strcmp(argv[2], "-lib")) is_lib = 1;
         if (!strcmp(argv[2], "-o")) {
             if (argc < 4) error("the -o option need an argument");
-            sprintf(outcommand, "nasm -f elf64 ./out.asm && gcc -o %s ./out.o -no-pie && rm out.asm && rm out.o", argv[3]);
-        } else strcpy(outcommand, "nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie && rm out.asm && rm out.o");
-    } else strcpy(outcommand, "nasm -f elf64 ./out.asm && gcc ./out.o -o out -no-pie && rm out.asm && rm out.o");
+            sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o -no-pie %s && rm out.asm && rm out.o", linker, argv[3], linker_flags);
+        } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.asm && rm out.o", linker, linker_flags);
+    } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.asm && rm out.o", linker, linker_flags);
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
