@@ -220,6 +220,7 @@ varindex (char var[]){
         }
     }
     error("Using non declarated variable.");
+    return 0;
 }
 // The Lexer
 struct lexline
@@ -1338,6 +1339,7 @@ compile (struct leaf *Ast)
                         struct reg arg = compile(Ast -> ast_function -> body);
                         if (arg.type == 0)
                         {
+                            fprintf(outfile, "\tpush\trbp\n"); /* Set up stack frame, must be alligned */
                             if ((Ast -> ast_function -> body -> type == 2) && (Ast -> ast_function -> body -> length != 1))
                             {
                                 (symbol_table + varind) -> is_static = 1;
@@ -1373,6 +1375,7 @@ compile (struct leaf *Ast)
                             free_register();
                         }
                         else if (arg.type == 1) fprintf(outfile, "\tmov\trdi, %s\n\tcall\tputs\n", arg.name);
+                        fprintf(outfile, "\tpop\trbp\n"); /* Restore stack */
                         free(arg.name);
                     }
                     else if (!strcmp("read", Ast -> ast_function -> function)) {
@@ -1660,9 +1663,9 @@ main ( int argc, char *argv[] )
         if (!strcmp(argv[2], "-lib")) is_lib = 1;
         if (!strcmp(argv[2], "-o")) {
             if (argc < 4) error("the -o option need an argument");
-            sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o -no-pie %s && rm out.asm && rm out.o", linker, argv[3], linker_flags);
-        } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.asm && rm out.o", linker, linker_flags);
-    } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.asm && rm out.o", linker, linker_flags);
+            sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o -no-pie %s && rm out.o", linker, argv[3], linker_flags);
+        } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.o", linker, linker_flags);
+    } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.o", linker, linker_flags);
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
