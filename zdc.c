@@ -148,7 +148,7 @@ struct reg // the structure of a register and its name
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
 char *keywords[11] = {"let", "print", "while", "if", "else",
-                  "elif", "string", "match", "iter", "read", "int"}; // List of keybords
+                  "elif", "string", "match", "iter", "read", "int", "include"}; // List of keybords
 FILE *fp1;
 FILE *outfile;
 struct variable *symbol_table;
@@ -163,6 +163,12 @@ error(char error[])
 {
     printf("\033[1;31mError\033[0m : %s\n", error);
     exit(1);
+}
+
+void
+warning(char warning[])
+{
+    printf("\033[1;33mError\033[0m : %s\n", warning);
 }
 
 // A function to check if a string is a keyword
@@ -904,32 +910,35 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 freeall(argcondition.body);
                 free(argcondition.body);
             }
-            else if ((!strcmp(token.value, "print")) || (!strcmp(token.value, "read"))){
+            else {
                 (Ast + aindex) -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                 size ++;
                 lex.base_value = size;
-                struct parse argbody = parsestatement (lex, "\n", -1);
+                struct parse argbody;
                 (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                 (Ast + aindex) -> type = 1;
                 strcpy((Ast + aindex) -> ast_function -> function, token.value);
-                if (argbody.size != 0) {
-                    (Ast + aindex) -> ast_function -> body_length = 1;
-                    /* If read is called with an argument, we print the argument and then call read */
-                    if (!strcmp(token.value, "read")) {
-                        (Ast + aindex) -> ast_function -> body -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
-                        (Ast + aindex) -> ast_function -> body -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                        copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
-                        (Ast + aindex) -> ast_function -> body -> type = 1;
-                        (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
-                        strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
-                    } else {
-                        copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
-                    }
-                    freeall(argbody.body);
-                } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
-                /* If we call read without an argument, print nothing */
-                else {
-                    (Ast + aindex) -> ast_function -> body_length = 0;
+                if ((!strcmp(token.value, "print")) || (!strcmp(token.value, "read"))) {
+                    argbody = parsestatement (lex, "\n", -1);
+                    if (argbody.size != 0) {
+                        (Ast + aindex) -> ast_function -> body_length = 1;
+                        /* If read is called with an argument, we print the argument and then call read */
+                        if (!strcmp(token.value, "read")) {
+                            (Ast + aindex) -> ast_function -> body -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
+                            (Ast + aindex) -> ast_function -> body -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                            copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
+                            (Ast + aindex) -> ast_function -> body -> type = 1;
+                            (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
+                            strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
+                        } else copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
+                        freeall(argbody.body);
+                    } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
+                    /* If we call read without an argument, print nothing */
+                    else (Ast + aindex) -> ast_function -> body_length = 0;
+                } else if (strcmp(token.value, "int")) {
+                    argbody = parsestatement (lex, "\n", 1);
+                    if (argbody.size == 0) error("The function int needs an argument.");
+                    strcpy((Ast + aindex) -> ast_function -> function, "int");
                 }
                 free(argbody.body);
                 while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
@@ -1111,7 +1120,7 @@ replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int i
 
 static char *reglist[8] = { "r8", "r9", "r10", "r11", "rcx", "rdx", "rdi", "rsi" }; // List of registers
 int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
-int used_functions[3] = {0, 0, 0};
+int used_functions[1] = {0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
 int
@@ -1314,7 +1323,6 @@ compile (struct leaf *Ast)
                     char *arg1 = compile (Ast -> ast_function -> body).name;
                     Ast -> ast_function -> body ++;
                     char *arg2 = compile (Ast -> ast_function -> body).name;
-                    used_functions[1] = 1;
                     Ast -> ast_function -> body --;
                     fprintf(outfile,"\tcmp\t%s, %s\n\tj%s\t_true%d\n\tmov\trax, 0\n\tjmp\t_after%d\n_true%d:\n\tmov\trax, 1\n_after%d:\n",
                             arg1,
