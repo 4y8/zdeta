@@ -1,9 +1,10 @@
 let fibonacci a =>
   if a == 0
-    1
+    0 
   else
     if a == 1
       1
     else
-      fib(a - 1) + fib(a - 2)
+      fibonacci(a - 1) + fibonacci(a - 2)
+print fibonacci 40
 

@@ -147,7 +147,7 @@ struct reg // the structure of a register and its name
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
-char *keywords[11] = {"let", "print", "while", "if", "else",
+char *keywords[12] = {"let", "print", "while", "if", "else",
                   "elif", "string", "match", "iter", "read", "int", "include"}; // List of keybords
 FILE *fp1;
 FILE *outfile;
@@ -939,6 +939,10 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     argbody = parsestatement (lex, "\n", 1);
                     if (argbody.size == 0) error("The function int needs an argument.");
                     strcpy((Ast + aindex) -> ast_function -> function, "int");
+                    (Ast + aindex) -> ast_function -> body_length = 1;
+                    (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
+                    copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
+                    freeall(argbody.body);
                 }
                 free(argbody.body);
                 while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
