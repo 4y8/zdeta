@@ -1,7 +1,27 @@
 /*
+ * BSD 3-Clause License
+ *
+ * Copyright (c) 2019-2020, Aghilas Boussaa
+ * All rights reserved.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* For more details see LICENSE */
+
+/*
  * Here is the Zdeta compiler A.K.A "zdc"
  * By @Yul3n
- * Usage zdc "program to compile" (optionnal : -o "name of the output file")
+ * Usage zdc "program to compile" (optionnal : -o "name of the output file" or -lib to generate a library file)
  */
 
 // Import the libraries
@@ -10,6 +30,9 @@
 #include <ctype.h>
 #include <string.h>
 #include "config.h"
+
+/* The constants used by the compiler */
+#define SYMBOL_TABLE_SIZE 100
 
 // Define an enumeration to list all the possible token types
 enum type { OPERATOR,
@@ -158,14 +181,19 @@ char custom_functions[10][10];
 int arg_number[10];
 int number_functions = 0;
 
-void
+/*
+ * The following functions are utils used by the compiler itself.
+ *
+ */
+
+static void
 error(char error[])
 {
     printf("\033[1;31mError\033[0m : %s\n", error);
     exit(1);
 }
 
-void
+static void
 warning(char warning[])
 {
     printf("\033[1;33mError\033[0m : %s\n", warning);
@@ -188,7 +216,7 @@ int is_in_strings(char in[], char list[][10], int length)
     return 0;
 }
 
-// A function to check the operator precedence of an input string
+/* A function to check the operator precedence of an input string */
 int
 operatorPrecedence (char operator[]){
     int precedence = -1; // If the input is not an operator or is empty, return -1
@@ -218,17 +246,246 @@ operatorPrecedence (char operator[]){
     return precedence;
 }
 
+/*
+ * Takes the name of a variable and return its position in the symbol table or
+ * throws an error if it doesn't exist.
+ */
 int
 varindex (char var[]){
-    for (int i = 0; i < 20; i++){
-        if (strcmp((symbol_table + i) -> name, var) == 0){
+    for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
+        if (strcmp((symbol_table + i) -> name, var) == 0)
             return i;
-        }
-    }
     error("Using non declarated variable.");
     return 0;
 }
-// The Lexer
+
+void freeall(struct leaf *AST){
+    switch(AST -> type){
+        case 0:
+            /*	FALLTHROUGH */
+        case 1:
+            /*	FALLTHROUGH */
+        case 6:
+            /*	FALLTHROUGH */
+        case 7:
+            /*	FALLTHROUGH */
+        case 9:
+            /*	FALLTHROUGH */
+        case 10: {
+        int body_length = 0;
+            int has_condition = 1;
+            struct leaf *body;
+            struct leaf *condition;
+            if (AST -> type == IFSTATEMENT) {
+                condition = AST -> ast_if -> condition;
+                body_length = AST -> ast_if -> body_length;
+                body = AST -> ast_if -> body;
+            } else if (AST -> type == WHILESTATEMENT) {
+                condition = AST -> ast_while -> condition;
+                body_length = AST -> ast_while -> body_length;
+                body = AST -> ast_while -> body;
+            } else if (AST -> type == ELSESTATEMENT) {
+                has_condition = 0;
+                body_length = AST -> ast_else -> body_length;
+                body = AST -> ast_else -> body;
+            } else if (AST -> type == ELIFSTATEMENT){
+                condition = AST -> ast_elif -> condition;
+                body_length = AST -> ast_elif -> body_length;
+                body = AST -> ast_elif -> body;
+            } else if (AST -> type == FUNCTION_CALL){
+                has_condition = 0;
+                body_length = AST -> ast_function -> body_length;
+                body = AST -> ast_function -> body;
+            } else {
+                has_condition = 0;
+                body_length = AST -> ast_functiondeclaration -> body_length;
+                body = AST -> ast_functiondeclaration -> body;
+            }
+            for (int i = 0; i < body_length; i++){
+                freeall(body + i);
+            }
+            free(body);
+            if (has_condition) {
+                freeall(condition);
+                free(condition);
+            }
+            if      (AST -> type == IFSTATEMENT)    free(AST -> ast_if);
+            else if (AST -> type == ELSESTATEMENT)  free(AST -> ast_else);
+            else if (AST -> type == ELIFSTATEMENT)  free(AST -> ast_elif);
+            else if (AST -> type == WHILESTATEMENT) free(AST -> ast_while);
+            else if (AST -> type == FUNCTION_CALL)  free(AST -> ast_function);
+            else                                    free(AST -> ast_functiondeclaration);
+            break;
+        }
+        case 2:
+            free(AST -> ast_number);
+            break;
+        case 3:
+            free(AST -> ast_bool);
+            break;
+        case 4:
+            free(AST -> ast_string);
+            break;
+        case 5:
+            free(AST -> ast_vardeclaration);
+            break;
+
+        case 8:
+            if (AST -> ast_identifier -> has_index) {
+                freeall(AST -> ast_identifier -> index);
+                free(AST -> ast_identifier -> index);
+            }
+            free(AST -> ast_identifier);
+            break;
+        case 11:
+            for (int i = 0; i < AST -> ast -> length; i++){
+                freeall(AST -> ast);
+                AST -> ast ++;
+            }
+            break;
+        case 12:
+            free(AST -> ast_register -> name);
+            free(AST -> ast_register);
+            break;
+        case 13: break;
+    }
+}
+
+/*
+ * A function to copy the content of an AST structure to another one
+ */
+
+void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2){
+    /* Adjust the pointers of each AST according to the input values */
+    transmitter += index1;
+    receiver += index2;
+    switch(transmitter -> type){
+        case 0:
+            receiver -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
+            receiver -> ast_functiondeclaration -> body = (struct leaf*) malloc((transmitter -> ast_functiondeclaration -> body_length) * sizeof(struct leaf));
+            strcpy(receiver -> ast_functiondeclaration -> name, transmitter -> ast_functiondeclaration -> name);
+            receiver -> ast_functiondeclaration -> argnumber = transmitter -> ast_functiondeclaration -> argnumber;
+            receiver -> ast_functiondeclaration -> body_length = transmitter -> ast_functiondeclaration -> body_length;
+            for (int i = 0; i < transmitter -> ast_functiondeclaration -> argnumber; i++){
+                strcpy(receiver -> ast_functiondeclaration -> arguments[i], transmitter -> ast_functiondeclaration -> arguments[i]);
+            }
+            for (int i = 0; i < (transmitter -> ast_functiondeclaration -> body_length); i++){
+                copy_ast(transmitter -> ast_functiondeclaration -> body, receiver -> ast_functiondeclaration -> body, i, i);
+            }
+            receiver -> length = 1;
+            break;
+        case 1:
+            receiver -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
+            strcpy(receiver -> ast_function -> function, transmitter -> ast_function -> function);
+            receiver -> ast_function -> body = (struct leaf*) malloc((transmitter -> ast_function -> body_length) * sizeof(struct leaf));
+            receiver -> ast_function -> body_length = transmitter -> ast_function -> body_length;
+            for (int i = 0; i < (transmitter -> ast_function -> body_length); i++){
+                copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, i, i);
+            }
+            receiver -> length = 1;
+            break;
+        case 2:
+            receiver -> ast_number = (struct number*) malloc(transmitter -> length * sizeof(struct number));
+            for (int i = 0; i < transmitter -> length; i++)
+            {
+                receiver -> ast_number -> value = transmitter -> ast_number -> value;
+                receiver -> ast_number ++;
+                transmitter -> ast_number ++;
+            }
+            receiver -> ast_number -= transmitter -> length;
+            transmitter -> ast_number -= transmitter -> length;
+            receiver -> length = transmitter -> length;
+            break;
+        case 3:
+            receiver -> ast_bool = (struct bool*) malloc(sizeof(struct bool));
+            receiver -> ast_bool -> value = transmitter -> ast_bool -> value;
+            break;
+        case 4:
+            receiver -> ast_string = (struct string*) malloc(sizeof(struct string));
+            strcpy(receiver -> ast_string -> value, transmitter -> ast_string -> value);
+            break;
+        case 5:
+            receiver -> ast_vardeclaration = (struct variable_declaration*) malloc(sizeof(struct variable_declaration));
+            strcpy(receiver -> ast_vardeclaration -> name, transmitter -> ast_vardeclaration -> name);
+            break;
+        case 6:
+            receiver -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
+            receiver -> ast_if -> body_length = transmitter -> ast_if -> body_length;
+            receiver -> ast_if -> body = (struct leaf*) malloc((transmitter -> ast_if -> body_length) * sizeof(struct leaf));
+            for (int i = 0; i < (transmitter -> ast_if -> body_length); i++){
+                copy_ast(transmitter -> ast_if -> body, receiver -> ast_if -> body, i, i);
+            }
+            receiver -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(transmitter -> ast_if -> condition, receiver -> ast_if -> condition, 0, 0);
+            break;
+        case 7:
+            receiver -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
+            receiver -> ast_while -> body_length = transmitter -> ast_while -> body_length;
+            receiver -> ast_while -> body = (struct leaf*) malloc((transmitter -> ast_while -> body_length) * sizeof(struct leaf));
+            for (int i = 0; i < (transmitter -> ast_while -> body_length); i++){
+                copy_ast(transmitter -> ast_while -> body, receiver -> ast_while -> body, i, i);
+            }
+            receiver -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(transmitter -> ast_while -> condition, receiver -> ast_while -> condition, 0, 0);
+            break;
+        case 8:
+            receiver -> ast_identifier = (struct identifier*) malloc(sizeof(struct identifier));
+            receiver -> ast_identifier -> has_index = transmitter -> ast_identifier -> has_index;
+            if (1 == transmitter -> ast_identifier -> has_index)
+            {
+                receiver -> ast_identifier -> index = (struct leaf*) malloc(sizeof(struct leaf));
+                copy_ast(transmitter -> ast_identifier -> index, receiver -> ast_identifier -> index, 0, 0);
+            }
+            strcpy (receiver -> ast_identifier -> name, transmitter -> ast_identifier -> name);
+            receiver -> length = 1;
+            break;
+        case 9:
+            receiver -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
+            receiver -> ast_else -> body_length = transmitter -> ast_else -> body_length;
+            receiver -> ast_else -> body = (struct leaf*) malloc((transmitter -> ast_else -> body_length) * sizeof(struct leaf));
+            for (int i = 0; i < (transmitter -> ast_else -> body_length); i++){
+                copy_ast(transmitter -> ast_else -> body, receiver -> ast_else -> body, i, i);
+            }
+            break;
+        case 10:
+            receiver -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
+            receiver -> ast_elif -> body_length = transmitter -> ast_elif -> body_length;
+            receiver -> ast_elif -> body = (struct leaf*) malloc((transmitter -> ast_elif -> body_length) * sizeof(struct leaf));
+            for (int i = 0; i < (transmitter -> ast_elif -> body_length); i++){
+                copy_ast(transmitter -> ast_elif -> body, receiver -> ast_elif -> body, i, i);
+            }
+            receiver -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
+            copy_ast(transmitter -> ast_elif -> condition, receiver -> ast_while -> condition, 0, 0);
+            break;
+        case 11:
+        {
+            int j = transmitter -> ast -> length;
+            receiver -> ast = (struct leaf*) malloc(j * sizeof(struct leaf));
+            receiver -> ast -> length = j;
+            for (int i = 0; i < j; i++)
+            {
+                copy_ast(transmitter -> ast, receiver -> ast, i, i);
+            }
+            break;
+        }
+        case 12:
+            receiver -> ast_register = (struct reg*) malloc(sizeof(struct reg));
+            receiver -> ast_register -> name = malloc(256 * sizeof(*receiver -> ast_register -> name));
+            strcpy(receiver -> ast_register -> name, transmitter -> ast_register -> name);
+            break;
+        case 13:
+            receiver -> stack_pos = transmitter -> stack_pos;
+    }
+    receiver -> is_negative = transmitter -> is_negative;
+    receiver -> type = transmitter -> type;
+}
+
+/*
+ * The Lexer
+ * Takes the input file as an input and return a list of tokens corresponding to a vlock of code.
+ * For instance : an if statement or a single instruction :
+ * print 4 => [function: 'print'], [number: '4'], [separator: 'switch_indent']
+ */
 struct lexline
 lexer(FILE *fp1, int min_indent, struct token *tokens){
     struct lexline lex;
@@ -364,217 +621,6 @@ lexer(FILE *fp1, int min_indent, struct token *tokens){
     }
     lex.size = -1;
     return lex;
-}
-
-void freeall(struct leaf *AST){
-    switch(AST -> type){
-        case 0:
-        case 1:
-        case 6:
-        case 7:
-        case 9:
-        case 10: {
-            int body_length = 0;
-            int has_condition = 1;
-            struct leaf *body;
-            struct leaf *condition;
-            if (AST -> type == IFSTATEMENT) {
-                condition = AST -> ast_if -> condition;
-                body_length = AST -> ast_if -> body_length;
-                body = AST -> ast_if -> body;
-            } else if (AST -> type == WHILESTATEMENT) {
-                condition = AST -> ast_while -> condition;
-                body_length = AST -> ast_while -> body_length;
-                body = AST -> ast_while -> body;
-            } else if (AST -> type == ELSESTATEMENT) {
-                has_condition = 0;
-                body_length = AST -> ast_else -> body_length;
-                body = AST -> ast_else -> body;
-            } else if (AST -> type == ELIFSTATEMENT){
-                condition = AST -> ast_elif -> condition;
-                body_length = AST -> ast_elif -> body_length;
-                body = AST -> ast_elif -> body;
-            } else if (AST -> type == FUNCTION_CALL){
-                has_condition = 0;
-                body_length = AST -> ast_function -> body_length;
-                body = AST -> ast_function -> body;
-            } else {
-                has_condition = 0;
-                body_length = AST -> ast_functiondeclaration -> body_length;
-                body = AST -> ast_functiondeclaration -> body;
-            }
-            for (int i = 0; i < body_length; i++){
-                freeall(body + i);
-            }
-            free(body);
-            if (has_condition) {
-                freeall(condition);
-                free(condition);
-            }
-            if      (AST -> type == IFSTATEMENT)    free(AST -> ast_if);
-            else if (AST -> type == ELSESTATEMENT)  free(AST -> ast_else);
-            else if (AST -> type == ELIFSTATEMENT)  free(AST -> ast_elif);
-            else if (AST -> type == WHILESTATEMENT) free(AST -> ast_while);
-            else if (AST -> type == FUNCTION_CALL)  free(AST -> ast_function);
-            else                                    free(AST -> ast_functiondeclaration);
-            break;
-        }
-        case 2:
-            free(AST -> ast_number);
-            break;
-        case 3:
-            free(AST -> ast_bool);
-            break;
-        case 4:
-            free(AST -> ast_string);
-            break;
-        case 5:
-            free(AST -> ast_vardeclaration);
-            break;
-
-        case 8:
-            if (AST -> ast_identifier -> has_index) {
-                freeall(AST -> ast_identifier -> index);
-                free(AST -> ast_identifier -> index);
-            }
-            free(AST -> ast_identifier);
-            break;
-        case 11:
-            for (int i = 0; i < AST -> ast -> length; i++){
-                freeall(AST -> ast);
-                AST -> ast ++;
-            }
-            break;
-        case 12:
-            free(AST -> ast_register -> name);
-            free(AST -> ast_register);
-            break;
-        case 13: break;
-    }
-}
-
-void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2){
-    transmitter += index1;
-    receiver += index2;
-    switch(transmitter -> type){
-        case 0:
-            receiver -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
-            receiver -> ast_functiondeclaration -> body = (struct leaf*) malloc((transmitter -> ast_functiondeclaration -> body_length) * sizeof(struct leaf));
-            strcpy(receiver -> ast_functiondeclaration -> name, transmitter -> ast_functiondeclaration -> name);
-            receiver -> ast_functiondeclaration -> argnumber = transmitter -> ast_functiondeclaration -> argnumber;
-            receiver -> ast_functiondeclaration -> body_length = transmitter -> ast_functiondeclaration -> body_length;
-            for (int i = 0; i < transmitter -> ast_functiondeclaration -> argnumber; i++){
-                strcpy(receiver -> ast_functiondeclaration -> arguments[i], transmitter -> ast_functiondeclaration -> arguments[i]);
-            }
-            for (int i = 0; i < (transmitter -> ast_functiondeclaration -> body_length); i++){
-                copy_ast(transmitter -> ast_functiondeclaration -> body, receiver -> ast_functiondeclaration -> body, i, i);
-            }
-            receiver -> length = 1;
-            break;
-        case 1:
-            receiver -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
-            strcpy(receiver -> ast_function -> function, transmitter -> ast_function -> function);
-            receiver -> ast_function -> body = (struct leaf*) malloc((transmitter -> ast_function -> body_length) * sizeof(struct leaf));
-            receiver -> ast_function -> body_length = transmitter -> ast_function -> body_length;
-            for (int i = 0; i < (transmitter -> ast_function -> body_length); i++){
-                copy_ast(transmitter -> ast_function -> body, receiver -> ast_function -> body, i, i);
-            }
-            receiver -> length = 1;
-            break;
-        case 2:
-            receiver -> ast_number = (struct number*) malloc(transmitter -> length * sizeof(struct number));
-            for (int i = 0; i < transmitter -> length; i++)
-            {
-                receiver -> ast_number -> value = transmitter -> ast_number -> value;
-                receiver -> ast_number ++;
-                transmitter -> ast_number ++;
-            }
-            receiver -> ast_number -= transmitter -> length;
-            transmitter -> ast_number -= transmitter -> length;
-            receiver -> length = transmitter -> length;
-            break;
-        case 3:
-            receiver -> ast_bool = (struct bool*) malloc(sizeof(struct bool));
-            receiver -> ast_bool -> value = transmitter -> ast_bool -> value;
-            break;
-        case 4:
-            receiver -> ast_string = (struct string*) malloc(sizeof(struct string));
-            strcpy(receiver -> ast_string -> value, transmitter -> ast_string -> value);
-            break;
-        case 5:
-            receiver -> ast_vardeclaration = (struct variable_declaration*) malloc(sizeof(struct variable_declaration));
-            strcpy(receiver -> ast_vardeclaration -> name, transmitter -> ast_vardeclaration -> name);
-            break;
-        case 6:
-            receiver -> ast_if = (struct ifstatement*) malloc(sizeof(struct ifstatement));
-            receiver -> ast_if -> body_length = transmitter -> ast_if -> body_length;
-            receiver -> ast_if -> body = (struct leaf*) malloc((transmitter -> ast_if -> body_length) * sizeof(struct leaf));
-            for (int i = 0; i < (transmitter -> ast_if -> body_length); i++){
-                copy_ast(transmitter -> ast_if -> body, receiver -> ast_if -> body, i, i);
-            }
-            receiver -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-            copy_ast(transmitter -> ast_if -> condition, receiver -> ast_if -> condition, 0, 0);
-            break;
-        case 7:
-            receiver -> ast_while = (struct whilestatement*) malloc(sizeof(struct whilestatement));
-            receiver -> ast_while -> body_length = transmitter -> ast_while -> body_length;
-            receiver -> ast_while -> body = (struct leaf*) malloc((transmitter -> ast_while -> body_length) * sizeof(struct leaf));
-            for (int i = 0; i < (transmitter -> ast_while -> body_length); i++){
-                copy_ast(transmitter -> ast_while -> body, receiver -> ast_while -> body, i, i);
-            }
-            receiver -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-            copy_ast(transmitter -> ast_while -> condition, receiver -> ast_while -> condition, 0, 0);
-            break;
-        case 8:
-            receiver -> ast_identifier = (struct identifier*) malloc(sizeof(struct identifier));
-            receiver -> ast_identifier -> has_index = transmitter -> ast_identifier -> has_index;
-            if (1 == transmitter -> ast_identifier -> has_index)
-            {
-                receiver -> ast_identifier -> index = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(transmitter -> ast_identifier -> index, receiver -> ast_identifier -> index, 0, 0);
-            }
-            strcpy (receiver -> ast_identifier -> name, transmitter -> ast_identifier -> name);
-            receiver -> length = 1;
-            break;
-        case 9:
-            receiver -> ast_else = (struct elsestatement*) malloc(sizeof(struct elsestatement));
-            receiver -> ast_else -> body_length = transmitter -> ast_else -> body_length;
-            receiver -> ast_else -> body = (struct leaf*) malloc((transmitter -> ast_else -> body_length) * sizeof(struct leaf));
-            for (int i = 0; i < (transmitter -> ast_else -> body_length); i++){
-                copy_ast(transmitter -> ast_else -> body, receiver -> ast_else -> body, i, i);
-            }
-            break;
-        case 10:
-            receiver -> ast_elif = (struct elifstatement*) malloc(sizeof(struct elifstatement));
-            receiver -> ast_elif -> body_length = transmitter -> ast_elif -> body_length;
-            receiver -> ast_elif -> body = (struct leaf*) malloc((transmitter -> ast_elif -> body_length) * sizeof(struct leaf));
-            for (int i = 0; i < (transmitter -> ast_elif -> body_length); i++){
-                copy_ast(transmitter -> ast_elif -> body, receiver -> ast_elif -> body, i, i);
-            }
-            receiver -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-            copy_ast(transmitter -> ast_elif -> condition, receiver -> ast_while -> condition, 0, 0);
-            break;
-        case 11:
-        {
-            int j = transmitter -> ast -> length;
-            receiver -> ast = (struct leaf*) malloc(j * sizeof(struct leaf));
-            receiver -> ast -> length = j;
-            for (int i = 0; i < j; i++)
-            {
-                copy_ast(transmitter -> ast, receiver -> ast, i, i);
-            }
-            break;
-        }
-        case 12:
-            receiver -> ast_register = (struct reg*) malloc(sizeof(struct reg));
-            receiver -> ast_register -> name = malloc(256 * sizeof(*receiver -> ast_register -> name));
-            strcpy(receiver -> ast_register -> name, transmitter -> ast_register -> name);
-            break;
-        case 13:
-            receiver -> stack_pos = transmitter -> stack_pos;
-    }
-    receiver -> is_negative = transmitter -> is_negative;
-    receiver -> type = transmitter -> type;
 }
 
 struct parse parsestatement(struct lexline lex, char terminator2[20], int max_length)
@@ -1401,13 +1447,23 @@ compile (struct leaf *Ast)
                                 "\tmov\tecx, out_buffer\n"
                                 "\tmov\tedx, 256\n"
                                 "\tint\t80h\n");
-                    }
-                    else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions))
-                    {
+                    } else if (!strcmp("int", Ast -> ast_function -> function)) {
+                        if (Ast -> ast_function -> body -> type == ZIDENTIFIER) // Return an error if the input is an array
+                            if ((symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length != 0)
+                                error("Can't convert an array to an integer");
+                        struct reg arg = compile(Ast -> ast_function -> body);
+                        outreg.type = INTEGER;
+                        if (arg.type == INTEGER) {
+                            warning("Converting an integer to an integer, useless");
+                            strcpy(outreg.name, arg.name);
+                        }
+                        else {
+                            strcpy(outreg.name, "rax");
+                        }
+                    } else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions)) {
                         char *args = malloc(256 * Ast -> ast_function -> body_length * sizeof(*args)); // allocate memory for the arguments
                         Ast -> ast_function -> body += Ast -> ast_function -> body_length - 1;
-                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) // Get all the arguments and save them in the "args" list
-                        {
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) { // Get all the arguments and save them in the "args" list
                             struct reg arg1 = compile(Ast -> ast_function -> body);
                             strcpy(args + i * 256, arg1.name);
                             free(arg1.name);
@@ -1667,8 +1723,8 @@ main ( int argc, char *argv[] )
     char *linker_flags = malloc(256 * sizeof(*linker_flags));
     if (USE_MUSL)      strcpy(linker, "musl-gcc");
     else               strcpy(linker, "gcc");
-    if (STATIC_LINKED) strcpy(linker_flags, "-static");
-    else               strcpy(linker_flags, "");
+    if (STATIC_LINKED) strcpy(linker_flags, "-flto -static -Os -s -no-pie -Wl,--gc-sections -static");
+    else               strcpy(linker_flags, "-flto -static -Os -s -no-pie -Wl,--gc-sections");
     int is_lib = 0;
     char *outcommand = malloc (sizeof(*outcommand) * 256);
     if (argc >= 3) {
@@ -1681,10 +1737,10 @@ main ( int argc, char *argv[] )
     fp1 = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
-                         "section\t.text\nglobal\tmain\n\textern\tprintf\n\textern\tputs\n\textern\tstrcat\n\textern\tstrncpy\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
+                         "section\t.text\nglobal\tmain\n\textern\tprintf\n\textern\tputs\n\textern\tstrcat\n\textern\tstrncpy\n\textern\tatoi\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
-    symbol_table  = malloc(20 * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
-    for (int i = 0; i < 20; i++) (symbol_table + i) -> is_static = 0;
+    symbol_table  = malloc(SYMBOL_TABLE_SIZE * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
+    for (int i = 0; i < SYMBOL_TABLE_SIZE; i++) (symbol_table + i) -> is_static = 0;
     outfinal.size = 0;
     outfinal.body = malloc(20 * sizeof(struct leaf));
     while(1)
