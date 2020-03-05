@@ -199,18 +199,22 @@ warning(char warning[])
     printf("\033[1;33mError\033[0m : %s\n", warning);
 }
 
-// A function to check if a string is a keyword
+/* A function to check if a string is a keyword */
 int iskeyword (char in[]){
-    for(int i = 0; i < 10; i++) if (strcmp(keywords[i], in) == 0) return 1;
+    for(int i = 0; i < 11; i++) if (strcmp(keywords[i], in) == 0) return 1;
     return 0;
 }
 // A function to check if a char is in a char list
-int isinchars(char in[], char check){
+int
+isinchars(char in[], char check)
+{
     for(int i = 0; i < 11; i++) if (in[i] == check) return 1;
     return 0;
 }
 
-int is_in_strings(char in[], char list[][10], int length)
+/* This function checks if a string is in a given list of strings */
+int
+is_in_strings(char in[], char list[][10], int length)
 {
     for(int i = 0; i < length; i++) if (strcmp(list[i], in) == 0) return 1 + i;
     return 0;
@@ -218,7 +222,8 @@ int is_in_strings(char in[], char list[][10], int length)
 
 /* A function to check the operator precedence of an input string */
 int
-operatorPrecedence (char operator[]){
+operatorPrecedence (char operator[])
+{
     int precedence = -1; // If the input is not an operator or is empty, return -1
     if (((strcmp(operator,   "&")) == 0) ||
         ((strcmp(operator,   "|")) == 0) ||
@@ -251,7 +256,8 @@ operatorPrecedence (char operator[]){
  * throws an error if it doesn't exist.
  */
 int
-varindex (char var[]){
+varindex (char var[])
+{
     for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
         if (strcmp((symbol_table + i) -> name, var) == 0)
             return i;
@@ -483,11 +489,12 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
 /*
  * The Lexer
  * Takes the input file as an input and return a list of tokens corresponding to a vlock of code.
- * For instance : an if statement or a single instruction :
- * print 4 => [function: 'print'], [number: '4'], [separator: 'switch_indent']
+ * For instance :
+ * print 4 -> [keyword: 'print'], [number: '4'], [separator: 'switch_indent']
  */
 struct lexline
-lexer(FILE *fp1, int min_indent, struct token *tokens){
+lexer(FILE *fp1, int min_indent, struct token *tokens)
+{
     struct lexline lex;
     char c = ' ';
     int i = 0, j = 0, k = 0, l = 0;
@@ -623,6 +630,15 @@ lexer(FILE *fp1, int min_indent, struct token *tokens){
     return lex;
 }
 
+/*
+ * The parser
+ * Takes a list of tokens from the lexer and outputs a list of ASTs.
+ * For instance :
+ * [keyword: 'print'], [number: '4'], [separator: 'switch_indent'] ->
+ * function_call : print
+ *     argument 1 :
+ *         number : 4
+ */
 struct parse parsestatement(struct lexline lex, char terminator2[20], int max_length)
 {
     if (lex.size == -1)
@@ -981,7 +997,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
                     /* If we call read without an argument, print nothing */
                     else (Ast + aindex) -> ast_function -> body_length = 0;
-                } else if (strcmp(token.value, "int")) {
+                } else if (!strcmp(token.value, "int")) {
                     argbody = parsestatement (lex, "\n", 1);
                     if (argbody.size == 0) error("The function int needs an argument.");
                     strcpy((Ast + aindex) -> ast_function -> function, "int");
@@ -1186,6 +1202,38 @@ free_register (void)
     if (used_registers > 0) used_registers --;
 }
 
+void
+save_registers (void)
+{
+    fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
+    for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+}
+
+void
+restore_registers (void)
+{
+    for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
+    fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
+}
+
+/*
+ * The assembly generator.
+ * Takes as an input a list of ASTs and writes corresponding unoptimized assembly
+ * to the output file.
+ * For instance:
+ * function_call : print
+ *     argument 1 :
+ *         number : 4
+ * ->
+ * mov     r8, 4
+ * push    rbp
+ * mov     rsi, r8
+ * mov     rdi, int_to_str
+ * xor     rax, rax
+ * call    printf wrt ..plt
+ * xor     rax, rax
+ * pop     rbp
+ */
 struct reg
 compile (struct leaf *Ast)
 {
@@ -1225,15 +1273,13 @@ compile (struct leaf *Ast)
                     struct reg arg2 = compile (Ast -> ast_function -> body);
                     Ast -> ast_function -> body --;
                     if (is_string_add) {
-                        fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
-                        for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+                        save_registers();
                         fprintf(outfile,
                                 "\tmov\trdi, buffer\n"
                                 "\tmov\trsi, hello\n"
                                 "\tmov\trdx, 256\n"
                                 "\tcall\tstrncpy\n");
-                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
-                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
+                        restore_registers();
                         fprintf(outfile,
                                 "\tmov\trdi,%s\n"
                                 "\tmov\trsi,%s\n"
@@ -1244,15 +1290,13 @@ compile (struct leaf *Ast)
                                 "\tcall\tstrncpy\n",
                                 arg1.name,
                                 arg2.name);
-                        fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
-                        for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+                        save_registers();
                         fprintf(outfile,
                                 "\tmov\trdi, hello\n"
                                 "\tmov\trsi, buffer\n"
                                 "\tmov\trdx, 256\n"
                                 "\tcall\tstrncpy\n");
-                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
-                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
+                        restore_registers();
                         strcpy(outreg.name, "out_buffer");
                         outreg.type = CHAR_LIST;
                         for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
@@ -1458,8 +1502,13 @@ compile (struct leaf *Ast)
                             strcpy(outreg.name, arg.name);
                         }
                         else {
+                            fprintf(outfile,
+                                    "\tmov\trdi,%s\n"
+                                    "\tcall\tatoi\n"
+                                    , arg.name);
                             strcpy(outreg.name, "rax");
                         }
+                        free(arg.name);
                     } else if (is_in_strings(Ast -> ast_function -> function, custom_functions, number_functions)) {
                         char *args = malloc(256 * Ast -> ast_function -> body_length * sizeof(*args)); // allocate memory for the arguments
                         Ast -> ast_function -> body += Ast -> ast_function -> body_length - 1;
@@ -1469,8 +1518,7 @@ compile (struct leaf *Ast)
                             free(arg1.name);
                             Ast -> ast_function -> body --;
                         }
-                        fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
-                        for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
+                        save_registers();
                         Ast -> ast_function -> body ++;
                         for (int i = 0; i < Ast -> ast_function -> body_length; i ++)
                         {
@@ -1478,12 +1526,11 @@ compile (struct leaf *Ast)
                             for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], (args + i *256))) free_register(); // We don't need allocated registers anymore since we've pushed them to the stack
                         }
                         fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
-                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) fprintf(outfile, "\tpop\trcx\n"); // Remove the arguments from the stack
-                        for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
                         int reg = new_register(); // Allocate a register for the output
                         strcpy(outreg.name, reglist[reg]);
                         fprintf(outfile, "\tmov\t%s, rax\n", reglist[reg]); // Put the result in the register
-                        fprintf(outfile, "\tpop\trax\n");
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) fprintf(outfile, "\tpop\trcx\n"); // Remove the arguments from the stack
+                        restore_registers();
                         outreg.type = 0;
                         free(args);
                     }
@@ -1648,6 +1695,11 @@ compile (struct leaf *Ast)
     return outreg;
 }
 
+/*
+ * The epilog of our program
+ * This function outputs to the output file the content that should be at the
+ * end like the static data and the needed space in the .bss section.
+ */
 void
 epilog(int is_lib)
 {
@@ -1721,23 +1773,25 @@ main ( int argc, char *argv[] )
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
     char *linker       = malloc(256 * sizeof(*linker));
     char *linker_flags = malloc(256 * sizeof(*linker_flags));
+    int is_lib         = 0;
+    char *outcommand   = malloc (sizeof(*outcommand) * 256);
     if (USE_MUSL)      strcpy(linker, "musl-gcc");
     else               strcpy(linker, "gcc");
-    if (STATIC_LINKED) strcpy(linker_flags, "-flto -static -Os -s -no-pie -Wl,--gc-sections -static");
-    else               strcpy(linker_flags, "-flto -static -Os -s -no-pie -Wl,--gc-sections");
-    int is_lib = 0;
-    char *outcommand = malloc (sizeof(*outcommand) * 256);
+    if (STATIC_LINKED) strcpy(linker_flags, "-flto -static -Os -s -Wl,--gc-sections -static");
+    else               strcpy(linker_flags, "-flto -static -Os -s -Wl,--gc-sections");
     if (argc >= 3) {
         if (!strcmp(argv[2], "-lib")) is_lib = 1;
         if (!strcmp(argv[2], "-o")) {
             if (argc < 4) error("the -o option need an argument");
-            sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o -no-pie %s && rm out.o", linker, argv[3], linker_flags);
-        } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.o", linker, linker_flags);
-    } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out -no-pie && rm out.o", linker, linker_flags);
-    fp1 = fopen (argv[1], "r");
+            sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o  %s && rm out.o", linker, argv[3], linker_flags);
+        } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out  && rm out.o", linker, linker_flags);
+    } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out  && rm out.o", linker, linker_flags);
+    fp1     = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
-                         "section\t.text\nglobal\tmain\n\textern\tprintf\n\textern\tputs\n\textern\tstrcat\n\textern\tstrncpy\n\textern\tatoi\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
+                         "section\t.text\nglobal\tmain\n\textern"
+                         "\tprintf\n\textern\tputs\n\textern\tstrcat\n"
+                         "\textern\tstrncpy\n\textern\tatoi\nmain:\n\tmov BYTE\t[char_buffer + 1], 0\n"); // Print the necessary components for the beginning of a nasm program
     struct parse outfinal;
     symbol_table  = malloc(SYMBOL_TABLE_SIZE * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < SYMBOL_TABLE_SIZE; i++) (symbol_table + i) -> is_static = 0;
