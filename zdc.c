@@ -727,9 +727,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     freeall(argbody.body + i);
                     aindex ++;
                 }
-                while (strcmp((tokens + size) -> value, ")")){
-                    size ++;
-                }
+                while ((tokens + size) -> value[0] != ')') size ++;
                 free(argbody.body);
                 size ++;
             }
@@ -992,11 +990,15 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                             (Ast + aindex) -> ast_function -> body -> type = 1;
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
                             strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
-                        } else copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body), 0, 0);
-                        freeall(argbody.body);
+                        } else {
+                            (Ast + aindex) -> ast_function -> body_length = argbody.size;
+                            copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
+                            freeall(argbody.body);
+                        }
                     } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
                     /* If we call read without an argument, print nothing */
                     else (Ast + aindex) -> ast_function -> body_length = 0;
+                    while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
                 } else if (!strcmp(token.value, "int")) {
                     argbody = parsestatement (lex, "\n", 1);
                     if (argbody.size == 0) error("The function int needs an argument.");
@@ -1005,9 +1007,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
                     copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                     freeall(argbody.body);
+                    size += argbody.used_tokens;
                 }
                 free(argbody.body);
-                while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
                 used_structures --;
             }
             aindex ++;
@@ -1500,8 +1502,7 @@ compile (struct leaf *Ast)
                         if (arg.type == INTEGER) {
                             warning("Converting an integer to an integer, useless");
                             strcpy(outreg.name, arg.name);
-                        }
-                        else {
+                        } else {
                             fprintf(outfile,
                                     "\tmov\trdi,%s\n"
                                     "\tcall\tatoi\n"
@@ -1522,8 +1523,8 @@ compile (struct leaf *Ast)
                         Ast -> ast_function -> body ++;
                         for (int i = 0; i < Ast -> ast_function -> body_length; i ++)
                         {
-                            fprintf(outfile, "\tpush\t%s\n", (args + i*256)); // Push the arguments to the stack
-                            for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], (args + i *256))) free_register(); // We don't need allocated registers anymore since we've pushed them to the stack
+                            fprintf(outfile, "\tpush\t%s\n", (args + i * 256)); // Push the arguments to the stack
+                            for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], (args + i * 256))) free_register(); // We don't need allocated registers anymore since we've pushed them to the stack
                         }
                         fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
                         int reg = new_register(); // Allocate a register for the output
