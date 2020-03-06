@@ -991,7 +991,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
                             strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
                         } else {
-                            (Ast + aindex) -> ast_function -> body_length = argbody.size;
+                            printf("%d\n", argbody.body -> type);
+                            (Ast + aindex) -> ast_function -> body_length = 1;
                             copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                             freeall(argbody.body);
                         }
@@ -1215,7 +1216,6 @@ void
 restore_registers (void)
 {
     for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
-    fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
 }
 
 /*
@@ -1282,6 +1282,7 @@ compile (struct leaf *Ast)
                                 "\tmov\trdx, 256\n"
                                 "\tcall\tstrncpy\n");
                         restore_registers();
+                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
                         fprintf(outfile,
                                 "\tmov\trdi,%s\n"
                                 "\tmov\trsi,%s\n"
@@ -1299,6 +1300,7 @@ compile (struct leaf *Ast)
                                 "\tmov\trdx, 256\n"
                                 "\tcall\tstrncpy\n");
                         restore_registers();
+                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
                         strcpy(outreg.name, "out_buffer");
                         outreg.type = CHAR_LIST;
                         for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], arg1.name)) free_register();
@@ -1443,6 +1445,7 @@ compile (struct leaf *Ast)
                         struct reg arg = compile(Ast -> ast_function -> body);
                         if (arg.type == 0)
                         {
+                            puts("ee");
                             fprintf(outfile, "\tpush\trbp\n"); /* Set up stack frame, must be alligned */
                             if ((Ast -> ast_function -> body -> type == 2) && (Ast -> ast_function -> body -> length != 1))
                             {
@@ -1459,17 +1462,13 @@ compile (struct leaf *Ast)
                                 sprintf((symbol_table + varind) -> name, "array_%d", number_array);
                                 strcat((symbol_table + varind) -> string, "[%d, ");
                                 for (int i = 0; i < (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length - 2; i++)
-                                {
                                     strcat((symbol_table + varind) -> string, "%d, ");
-                                }
                                 strcat((symbol_table + varind) -> string, "%d]");
                                 for (int i = 0; i < (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length; i++)
-                                {
                                     fprintf(outfile, "\tmov\t%s, [%s + 8 * %d]\n",
                                             arg_func_list[i + 1],
                                             (symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> name,
                                             i );
-                                }
                                 (symbol_table + varind) -> At_the_end_0xA = 1;
                                 fprintf(outfile, "\tmov\trdi, array_%d\n\txor rax, rax\n\tcall\tprintf wrt ..plt\n\txor\trax, rax\n", number_array);
                                 number_array ++;
@@ -1527,11 +1526,12 @@ compile (struct leaf *Ast)
                             for (int j = 0; j < 8; j++) if (!strcmp(reglist[j], (args + i * 256))) free_register(); // We don't need allocated registers anymore since we've pushed them to the stack
                         }
                         fprintf(outfile, "\tcall\t_%s\n", Ast -> ast_function -> function);
+                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) fprintf(outfile, "\tpop\trcx\n"); // Remove the arguments from the stack
                         int reg = new_register(); // Allocate a register for the output
                         strcpy(outreg.name, reglist[reg]);
-                        fprintf(outfile, "\tmov\t%s, rax\n", reglist[reg]); // Put the result in the register
-                        for (int i = 0; i < Ast -> ast_function -> body_length; i++) fprintf(outfile, "\tpop\trcx\n"); // Remove the arguments from the stack
                         restore_registers();
+                        fprintf(outfile, "\tmov\t%s, rax\n", reglist[reg]); // Put the result in the register
+                        fprintf(outfile, "\tpop\trax\n"); // Restore registers on the stack
                         outreg.type = 0;
                         free(args);
                     }
