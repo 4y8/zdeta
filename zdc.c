@@ -143,8 +143,7 @@ struct variable{
         struct leaf *ast;
     };
 };
-struct reg // the structure of a register and its name
-{
+struct reg { // the structure of a register and its name
     char              *name;
     enum variable_type type;
 };
@@ -152,14 +151,13 @@ char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of
 char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
 char *keywords[12] = {"let", "print", "while", "if", "else",
                   "elif", "string", "match", "iter", "read", "int", "include"}; // List of keybords
-FILE *fp1;
-FILE *outfile;
+FILE *fp1, *outfile;
 struct variable *symbol_table;
-int varind = 0; // Keep track of the actual free symbol table place
-int actualindentlevel = 0;
+int varind           = 0, // Keep track of the actual free symbol table place
+    indentlevel      = 0,
+    number_functions = 0;
 char custom_functions[10][10];
 int arg_number[10];
-int number_functions = 0;
 
 /*
  * The following functions are utils used by the compiler itself.
@@ -181,14 +179,14 @@ warning(char warning[])
 
 /* A function to check if a string is a keyword */
 int iskeyword (char in[]){
-    for(int i = 0; i < 11; i++) if (strcmp(keywords[i], in) == 0) return 1;
+    for (int i = 0; i < 11; i++) if (strcmp(keywords[i], in) == 0) return 1;
     return 0;
 }
 // A function to check if a char is in a char list
 int
 isinchars(char in[], char check)
 {
-    for(int i = 0; i < 11; i++) if (in[i] == check) return 1;
+    for (int i = 0; i < 11; i++) if (in[i] == check) return 1;
     return 0;
 }
 
@@ -196,7 +194,7 @@ isinchars(char in[], char check)
 int
 is_in_strings(char in[], char list[][10], int length)
 {
-    for(int i = 0; i < length; i++) if (strcmp(list[i], in) == 0) return 1 + i;
+    for (int i = 0; i < length; i++) if (strcmp(list[i], in) == 0) return 1 + i;
     return 0;
 }
 
@@ -242,7 +240,6 @@ varindex (char var[])
         if (strcmp((symbol_table + i) -> name, var) == 0)
             return i;
     error("Using non declarated variable.");
-    return 0;
 }
 
 void freeall(struct leaf *Ast){
@@ -337,7 +334,9 @@ void freeall(struct leaf *Ast){
  * A function to copy the content of an AST structure to another one
  */
 
-void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2){
+void
+copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2)
+{
     /* Adjust the pointers of each AST according to the input values */
     transmitter += index1;
     receiver += index2;
@@ -448,6 +447,14 @@ void copy_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int i
     }
     receiver -> is_negative = transmitter -> is_negative;
     receiver -> type = transmitter -> type;
+}
+
+void
+move_ast(struct leaf *transmitter, struct leaf *receiver, int index1, int index2)
+{
+
+    copy_ast(transmitter, receiver, index1, index2);
+    freeall(transmitter + index1);
 }
 
 /*
@@ -569,22 +576,22 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
                         indent ++;
                     }
                     if (c != EOF) fseek(fp1, ftell(fp1) - 1, SEEK_SET);
-                    indent = indent / 2;
-                    if (indent < actualindentlevel)
+                    indent /= 2;
+                    if (indent < indentlevel)
                     {
                         k ++;
-                        actualindentlevel = indent;
+                        indentlevel = indent;
                         strcpy((tokens + k) -> value, "switch_indent");
                     }
                     if (indent <= min_indent){
-                        actualindentlevel = indent;
+                        indentlevel = indent;
                         strcpy((tokens + k) -> value, "switch_indent");
                         lex.size = k;
                         lex.base_value = 0;
                         lex.tokens = tokens;
                         return lex;
                     }
-                    actualindentlevel = indent;
+                    indentlevel = indent;
                 }
             }
             k++;
@@ -682,87 +689,85 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         }
         else if (token.type == 1)
         {
-            if (token.value[0] == '('){
-                size ++;
-                lex.base_value = size;
-                struct parse argbody = parsestatement(lex, ")", -1);
-                for (int i = 0; i < argbody.size; i ++){
-                    copy_ast(argbody.body, Ast + aindex, i, i);
-                    freeall(argbody.body + i);
-                    aindex ++;
-                }
-                while ((tokens + size) -> value[0] != ')') size ++;
-                free(argbody.body);
-                size ++;
-            }
-            else if (token.value[0] == '\n'){
-                current_operator --;
-                while (current_operator >= 0) {
-                    arg2 = (struct leaf *) malloc(sizeof(struct leaf));
-                    copy_ast(Ast, arg2, aindex - 2, 0);
-                    (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
-                    (Ast + aindex - 2) -> ast_function->body = (struct leaf *) malloc(2 * sizeof(struct leaf));
-                    (Ast + aindex - 2) -> type = FUNCTION_CALL;
-                    strcpy(((Ast + aindex - 2) -> ast_function) -> function,
-                           operators[current_operator].value);
-                    copy_ast(arg2, (Ast + aindex - 2)->ast_function->body, 0, 0);
-                    copy_ast(Ast, (Ast + aindex - 2)->ast_function->body, aindex - 1, 1);
-                    ((Ast + aindex - 2) -> ast_function)->body_length = 2;
-                    aindex --;
-                    current_operator--;
-                }
-                current_operator = 0;
-                size ++;
-            }
-            else if (token.value[0] == '{')
-            {
-                while(((tokens + size) -> value)[0] != '\n' ) size ++;
-                lex.base_value = size + 1;
-                struct parse argbody = parsestatement(lex, "}", -1);
-                (Ast + aindex) -> type = AST;
-                (Ast + aindex) -> ast = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
-                for (int i = 0; i < argbody.size; i ++){
-                    copy_ast(argbody.body, (Ast + aindex) -> ast, i, i);
-                    freeall(argbody.body + i);
-                }
-                free(argbody.body);
-                (Ast + aindex) -> ast -> length = argbody.size;
-                aindex ++;
-                while ((strcmp("}", (tokens + size) -> value)) && (size <= lex.size)) size ++;
-            }
-            else if ((token.value[0] == '}') || (token.value[0] == ')') || !strcmp("switch_indent", token.value)) size ++;
-            else if (token.value[0] == '[')
-            {
-                size ++;
-                int arraysize = 0;
-                while ((tokens + size) -> value[0] != ']') arraysize ++ ,size ++;
-                size -= arraysize;
-                (Ast + aindex) -> type = ZNUMBER;
-                (Ast + aindex) -> ast_number = (struct number*) malloc(arraysize * sizeof(struct number));
-                (Ast + aindex) -> length = arraysize;
-                while ((tokens + size) -> value[0] != ']')
-                {
-                    if ((tokens + size) -> type == 3)
-                    {
-                        (Ast + aindex) -> ast_number -> value = atoi((tokens + size) -> value);
-                        (Ast + aindex) -> ast_number ++;
-                    }
+            struct parse argbody;
+            switch (token.value[0]) {
+                case '(':
                     size ++;
-                }
-                (Ast + aindex) -> ast_number -= arraysize;
-                size ++;
-                aindex ++;
+                    lex.base_value = size;
+                    argbody = parsestatement(lex, ")", -1);
+                    for (int i = 0; i < argbody.size; i ++){
+                        move_ast(argbody.body, Ast + aindex, i, i);
+                        aindex ++;
+                    }
+                    while ((tokens + size) -> value[0] != ')') size ++;
+                    free(argbody.body);
+                    size ++;
+                    break;
+                case '\n':
+                    current_operator --;
+                    while (current_operator >= 0) {
+                        arg2 = (struct leaf *) malloc(sizeof(struct leaf));
+                        copy_ast(Ast, arg2, aindex - 2, 0);
+                        (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
+                        (Ast + aindex - 2) -> ast_function->body = (struct leaf *) malloc(2 * sizeof(struct leaf));
+                        (Ast + aindex - 2) -> type = FUNCTION_CALL;
+                        strcpy(((Ast + aindex - 2) -> ast_function) -> function, operators[current_operator].value);
+                        copy_ast(arg2, (Ast + aindex - 2)->ast_function->body, 0, 0);
+                        copy_ast(Ast, (Ast + aindex - 2)->ast_function->body, aindex - 1, 1);
+                        ((Ast + aindex - 2) -> ast_function)->body_length = 2;
+                        aindex --;
+                        current_operator--;
+                    }
+                    current_operator = 0;
+                    size ++;
+                    break;
+                case '{':
+                    while(((tokens + size) -> value)[0] != '\n' ) size ++;
+                    lex.base_value = size + 1;
+                    argbody = parsestatement(lex, "}", -1);
+                    (Ast + aindex) -> type = AST;
+                    (Ast + aindex) -> ast = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                    for (int i = 0; i < argbody.size; i ++)
+                        move_ast(argbody.body, (Ast + aindex) -> ast, i, i);
+                    free(argbody.body);
+                    (Ast + aindex) -> length = argbody.size;
+                    aindex ++;
+                    while ((strcmp("}", (tokens + size) -> value)) && (size <= lex.size)) size ++;
+                    break;
+                case '}':
+                case ')':
+                    size ++;
+                    break;
+                case '[':
+                    size ++;
+                    int arraysize = 0;
+                    while ((tokens + size) -> value[0] != ']') arraysize ++ ,size ++;
+                    size -= arraysize;
+                    (Ast + aindex) -> type = ZNUMBER;
+                    (Ast + aindex) -> ast_number = (struct number*) malloc(arraysize * sizeof(struct number));
+                    (Ast + aindex) -> length = arraysize;
+                    while ((tokens + size) -> value[0] != ']') {
+                        if ((tokens + size) -> type == 3) {
+                            (Ast + aindex) -> ast_number -> value = atoi((tokens + size) -> value);
+                            (Ast + aindex) -> ast_number ++;
+                        }
+                        size ++;
+                    }
+                    (Ast + aindex) -> ast_number -= arraysize;
+                    size ++;
+                    aindex ++;
+                default:
+                    size ++;
+                    break;
             }
-        }
-        else if (token.type == 4){
+        } else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
                 if ((tokens + size + 1) -> type != 2)
                     error("Can't assign to something that is not an identifier.");
                 int is_function = 0;
                 int size_before = size;
                 while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) { // We first search if we have a "=>" token on the line
-                    if (!strcmp((tokens + size) -> value, "=>"))
-                    {
+                    if (!strcmp((tokens + size) -> value, "=>")) {
                         is_function = size; // If we encouter the "=>" token it means that we're declaring a function, so we store its position
                         break;
                     }
@@ -774,9 +779,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     (Ast + aindex) -> type = VARDECLARATION;
                     (Ast + aindex) -> ast_vardeclaration = (struct variable_declaration *) malloc(sizeof(struct variable_declaration));
                     strcpy((Ast + aindex) -> ast_vardeclaration -> name, (tokens + size + 1) -> value); // Name the variable after the next token
-                }
-                else
-                {
+                } else {
                     (Ast + aindex) -> type = FUNCTION;
                     size ++;
                     (Ast + aindex) -> ast_functiondeclaration = (struct function*) malloc(sizeof(struct function));
@@ -829,15 +832,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0); // Copy the condition to the AST
                 for (int i = 0; i < argbody.size; i ++) // Now add the body to the AST
-                {
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_if -> body, 0, 0);
-                    (Ast + aindex) -> ast_if -> body ++;
-                    freeall(argbody.body);
-                    argbody.body ++;
-                }
+                    move_ast(argbody.body, (Ast + aindex) -> ast_if -> body, i, i);
                 (Ast + aindex) -> ast_if -> body_length = argbody.size;
-                argbody.body -= argbody.size;
-                (Ast + aindex) -> ast_if -> body -= argbody.size;
                 int i = 0;
                 used_structures = argbody.used_structures;
                 while (i <= argbody.used_structures)
@@ -863,16 +859,10 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_while -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_while -> condition, 0, 0);
-                for (int i = 0; i < argbody.size; i ++){
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_while -> body, 0, 0);
-                    (Ast + aindex) -> ast_while -> body ++;
-                    freeall(argbody.body);
-                    argbody.body ++;
-                }
+                for (int i = 0; i < argbody.size; i ++)
+                    move_ast(argbody.body, (Ast + aindex) -> ast_while -> body, i, i);
                 (Ast + aindex) -> ast_while -> body_length = argbody.size;
-                argbody.body -= argbody.size;
                 free(argbody.body);
-                (Ast + aindex) -> ast_while -> body -= argbody.size;
                 int i = 0;
                 used_structures = argbody.used_structures;
                 while (i <= argbody.used_structures)
@@ -891,23 +881,15 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> type = ELSESTATEMENT;
                 (Ast + aindex) -> ast_else -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 for (int i = 0; i < argbody.size; i ++)
-                {
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_else -> body, 0, 0);
-                    (Ast + aindex) -> ast_else -> body ++;
-                    freeall(argbody.body);
-                    argbody.body ++;
-                }
+                    move_ast(argbody.body, (Ast + aindex) -> ast_else -> body, i, i);
                 (Ast + aindex) -> ast_else -> body_length = argbody.size;
-                argbody.body -= argbody.size;
                 free(argbody.body);
-                (Ast + aindex) -> ast_else -> body -= argbody.size;
                 int i = 0;
                 used_structures = argbody.used_structures;
-                while (i <= argbody.used_structures)
-                {
+                do {
                     if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
-                }
+                } while (i <= argbody.used_structures);
                 size --;
             }
             else if (strcmp(token.value, "elif") == 0){
@@ -923,15 +905,9 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_elif -> condition = (struct leaf*) malloc(sizeof(struct leaf));
                 copy_ast(argcondition.body, (Ast + aindex) -> ast_elif -> condition, 0, 0);
                 (Ast + aindex) -> ast_elif -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
-                for (int i = 0; i < argbody.size; i ++){
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_elif -> body, 0, 0);
-                    (Ast + aindex) -> ast_elif -> body ++;
-                    freeall(argbody.body);
-                    argbody.body ++;
-                }
+                for (int i = 0; i < argbody.size; i ++)
+                    move_ast(argbody.body, (Ast + aindex) -> ast_elif -> body, i, i);
                 (Ast + aindex) -> ast_elif -> body_length = argbody.size;
-                argbody.body -= argbody.size;
-                (Ast + aindex) -> ast_elif -> body -= argbody.size;
                 while (strcmp("switch_indent", (tokens + size) -> value)) size ++;
                 freeall(argcondition.body);
                 free(argcondition.body);
@@ -952,14 +928,13 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         if (!strcmp(token.value, "read")) {
                             (Ast + aindex) -> ast_function -> body -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                            copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
+                            move_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
                             (Ast + aindex) -> ast_function -> body -> type = FUNCTION_CALL;
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
                             strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
                         } else {
                             (Ast + aindex) -> ast_function -> body_length = 1;
-                            copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
-                            freeall(argbody.body);
+                            move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                         }
                     } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
                     /* If we call read without an argument, print nothing */
@@ -971,8 +946,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     strcpy((Ast + aindex) -> ast_function -> function, "int");
                     (Ast + aindex) -> ast_function -> body_length = 1;
                     (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
-                    freeall(argbody.body);
+                    move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                     size += argbody.used_tokens;
                 }
                 free(argbody.body);
@@ -995,14 +969,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(arg_number[index_of_function - 1] * sizeof(struct leaf));
                 if (argbody.size < arg_number[index_of_function - 1]) error("Not enough argument for a function");
                 for(int i = 0; i < arg_number[index_of_function - 1]; i ++)
-                {
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
-                    (Ast + aindex) -> ast_function -> body ++;
-                    freeall(argbody.body);
-                    argbody.body ++;
-                }
-                argbody.body -=  arg_number[index_of_function - 1];
-                (Ast + aindex) -> ast_function -> body -= arg_number[index_of_function - 1];
+                    move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                 size += 1 + argbody.used_tokens;
                 free(argbody.body);
             }
@@ -1018,8 +985,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     struct parse argbody = parsestatement (lex, "", 1);
                     (Ast + aindex) -> ast_identifier -> index = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                     (Ast + aindex) -> ast_identifier -> has_index = 1;
-                    copy_ast(argbody.body, (Ast + aindex) -> ast_identifier -> index, 0, 0);
-                    freeall(argbody.body);
+                    move_ast(argbody.body, (Ast + aindex) -> ast_identifier -> index, 0, 0);
                     free(argbody.body);
                     size += 1 + argbody.used_tokens;
                 }
@@ -1031,8 +997,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     current_operator --;
     while (current_operator >= 0) {
         arg2 = (struct leaf *) malloc(sizeof(struct leaf));
-        copy_ast(Ast, arg2, aindex - 2, 0);
-        freeall(Ast + aindex - 2);
+        move_ast(Ast, arg2, aindex - 2, 0);
         (Ast + aindex - 2) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
         (Ast + aindex - 2) -> ast_function -> body = (struct leaf *) malloc(2 * sizeof(struct leaf));
         (Ast + aindex - 2) -> type = FUNCTION_CALL;
@@ -1061,80 +1026,52 @@ void
 check(struct leaf *Ast)
 {
     if (Ast -> type == FUNCTION_CALL){
-        if (strcmp(Ast -> ast_function -> function, "=") == 0){
-            if (Ast -> ast_function -> body -> type != ZIDENTIFIER){
+        if (strcmp(Ast -> ast_function -> function, "=") == 0)
+            if (Ast -> ast_function -> body -> type != ZIDENTIFIER)
                 error("assigning a value to a non variable element.");
-                exit(1);
-            }
-        }
     }
     else if (Ast -> type == ELSESTATEMENT) {
-        if (((Ast - 1) -> type != IFSTATEMENT) && ((Ast - 1) -> type != ELIFSTATEMENT)){
+        if (((Ast - 1) -> type != IFSTATEMENT) && ((Ast - 1) -> type != ELIFSTATEMENT))
             error("using an else without an if.");
-            exit(1);
-        }
     }
     return;
 }
-
+void multi_replace(char identifiers[][10], struct leaf *Ast, int identifier_num, int ast_size);
 // Functions for the actual compiler
 void
-replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int identifier_num)
+replace_by_stack (char identifiers[][10], struct leaf *Ast, int identifier_num)
 {
     switch (Ast -> type)
     {
         case FUNCTION       :
-        case FUNCTION_CALL  :
-        case IFSTATEMENT    :
-        case WHILESTATEMENT :
-        case ELSESTATEMENT  :
-        case ELIFSTATEMENT  :
-        case AST            :
-        {
-            int body_length = 0;
-            struct leaf *Astbody;
-            switch (Ast -> type)
-            {
-                case FUNCTION :
-                    body_length = Ast -> ast_functiondeclaration -> body_length;
-                    Astbody = Ast -> ast_functiondeclaration -> body;
-                    break;
-                case FUNCTION_CALL:
-                    body_length = Ast -> ast_function -> body_length;
-                    Astbody = Ast -> ast_function -> body;
-                    break;
-                case IFSTATEMENT :
-                    body_length = Ast -> ast_if -> body_length;
-                    replace_identifier_by_stack_pos(identifiers, Ast -> ast_if -> condition, identifier_num);
-                    Astbody = Ast -> ast_if -> body;
-                    break;
-                case WHILESTATEMENT :
-                    replace_identifier_by_stack_pos(identifiers, Ast -> ast_while -> condition, identifier_num);
-                    body_length = Ast -> ast_while -> body_length;
-                    Astbody = Ast -> ast_while -> body;
-                    break;
-                case ELSESTATEMENT :
-                    body_length = Ast -> ast_else -> body_length;
-                    Astbody = Ast -> ast_else -> body;
-                    break;
-                case ELIFSTATEMENT :
-                    replace_identifier_by_stack_pos(identifiers, Ast -> ast_elif -> condition, identifier_num);
-                    body_length = Ast -> ast_elif -> body_length;
-                    Astbody = Ast -> ast_elif -> body;
-                    break;
-                case AST :
-                    body_length = Ast -> ast -> length;
-                    Astbody = Ast -> ast;
-                    break;
-            }
-            for (int i = 0; i < body_length; i++)
-            {
-                replace_identifier_by_stack_pos(identifiers, Astbody, identifier_num);
-                Astbody ++;
-            }
-            Astbody -= body_length;
+            multi_replace(identifiers, Ast -> ast_functiondeclaration -> body,
+                          identifier_num, Ast -> ast_functiondeclaration -> body_length);
             break;
-        }
+        case FUNCTION_CALL  :
+            multi_replace(identifiers, Ast -> ast_function -> body, identifier_num,
+                          Ast -> ast_function -> body_length);
+            break;
+        case IFSTATEMENT    :
+            multi_replace(identifiers, Ast -> ast_if -> body, identifier_num,
+                          Ast -> ast_if -> body_length);
+            replace_by_stack(identifiers, Ast -> ast_if -> condition, identifier_num);
+            break;
+        case WHILESTATEMENT :
+            multi_replace(identifiers, Ast -> ast_while -> body, identifier_num,
+                          Ast -> ast_while -> body_length);
+            replace_by_stack(identifiers, Ast -> ast_while -> condition,
+                             identifier_num);
+            break;
+        case ELSESTATEMENT  :
+            multi_replace(identifiers, Ast -> ast_else -> body, identifier_num,
+                          Ast -> ast_else -> body_length);
+        case ELIFSTATEMENT  :
+            multi_replace(identifiers, Ast -> ast_elif -> body, identifier_num,
+                          Ast -> ast_elif -> body_length);
+            replace_by_stack(identifiers, Ast -> ast_elif -> condition, identifier_num);
+        case AST            :
+            multi_replace(identifiers, Ast -> ast, identifier_num,
+                          Ast -> length );
         case REG            : break;
         case STACK_POS      : break;
         case ZNUMBER        : break;
@@ -1152,6 +1089,12 @@ replace_identifier_by_stack_pos (char identifiers[][10], struct leaf *Ast, int i
     }
 }
 
+void
+multi_replace(char identifiers[][10], struct leaf *Ast, int identifier_num, int ast_size)
+{
+    for (int i = 0; i < ast_size; i++)
+        replace_by_stack(identifiers, Ast + i, identifier_num);
+}
 static char *reglist[8] = { "r8", "r9", "r10", "r11", "rcx", "rdx", "rdi", "rsi" }; // List of registers
 int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0, number_array = 0;
 int used_functions[1] = {0};
@@ -1212,7 +1155,7 @@ compile (struct leaf *Ast)
         case FUNCTION :
             for (int i = 0; i < Ast -> ast_functiondeclaration -> body_length; i++)
             {
-                replace_identifier_by_stack_pos(Ast -> ast_functiondeclaration -> arguments,
+                replace_by_stack(Ast -> ast_functiondeclaration -> arguments,
                                                 Ast -> ast_functiondeclaration -> body,
                                                 Ast -> ast_functiondeclaration -> argnumber);
                 Ast -> ast_functiondeclaration -> body ++;
@@ -1726,10 +1669,10 @@ int
 main ( int argc, char *argv[] )
 {
     if (argc < 2) exit(1); // If we don't have a file to compile exit.
-    char *linker       = malloc(256 * sizeof(*linker));
-    char *linker_flags = malloc(256 * sizeof(*linker_flags));
+    char *linker       = malloc(256 * sizeof(*linker)),
+         *linker_flags = malloc(256 * sizeof(*linker_flags)),
+         *outcommand   = malloc (sizeof(*outcommand) * 256);
     int is_lib         = 0;
-    char *outcommand   = malloc (sizeof(*outcommand) * 256);
     if (USE_MUSL)      strcpy(linker, "musl-gcc");
     else               strcpy(linker, "gcc");
     if (STATIC_LINKED) strcpy(linker_flags, "-flto -static -Os -s -Wl,--gc-sections -static");
@@ -1758,14 +1701,11 @@ main ( int argc, char *argv[] )
         tokens = malloc(100 * sizeof(struct token));
         struct parse out = parsestatement(lexer(fp1, 0, tokens), "\n", -1);
         for (int i = 0; i < out.size; i ++){
-            copy_ast(out.body, outfinal.body, 0, outfinal.size);
+            move_ast(out.body, outfinal.body, i, outfinal.size);
             outfinal.size ++;
-            freeall(out.body);
-            out.body ++;
         }
         free(tokens);
         if (out.size == -1) break;
-        out.body -= out.size;
         free(out.body);
     }
     fclose(fp1);
