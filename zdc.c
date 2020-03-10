@@ -16,9 +16,6 @@
 #include <string.h>
 #include "config.h"
 
-/* The constants used by the compiler */
-#define SYMBOL_TABLE_SIZE 100
-
 // Define an enumeration to list all the possible token types
 enum type { OPERATOR,
             SEPARATOR,
@@ -178,12 +175,14 @@ warning(char warning[])
 }
 
 /* A function to check if a string is a keyword */
-int iskeyword (char in[]){
+static int
+iskeyword (char in[])
+{
     for (int i = 0; i < 11; i++) if (strcmp(keywords[i], in) == 0) return 1;
     return 0;
 }
 // A function to check if a char is in a char list
-int
+static int
 isinchars(char in[], char check)
 {
     for (int i = 0; i < 11; i++) if (in[i] == check) return 1;
@@ -191,7 +190,7 @@ isinchars(char in[], char check)
 }
 
 /* This function checks if a string is in a given list of strings */
-int
+static int
 is_in_strings(char in[], char list[][10], int length)
 {
     for (int i = 0; i < length; i++) if (strcmp(list[i], in) == 0) return 1 + i;
@@ -569,16 +568,14 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
                 conv[0] = c;
                 strcpy((tokens + k) -> value, conv);
                 if(c == '\n'){
-                    int indent = 0;
-                    c = fgetc(fp1);
-                    while (c == ' '){
+                    long indent = ftell(fp1);
+                    do
                         c = fgetc(fp1);
-                        indent ++;
-                    }
+                    while (c == ' ');
+                    indent = ftell(fp1) - indent + 1;
                     if (c != EOF) fseek(fp1, ftell(fp1) - 1, SEEK_SET);
-                    indent /= 2;
-                    if (indent < indentlevel)
-                    {
+                    indent /= TAB_SIZE;
+                    if (indent < indentlevel) {
                         k ++;
                         indentlevel = indent;
                         strcpy((tokens + k) -> value, "switch_indent");
@@ -1065,13 +1062,16 @@ replace_by_stack (char identifiers[][10], struct leaf *Ast, int identifier_num)
         case ELSESTATEMENT  :
             multi_replace(identifiers, Ast -> ast_else -> body, identifier_num,
                           Ast -> ast_else -> body_length);
+            break;
         case ELIFSTATEMENT  :
             multi_replace(identifiers, Ast -> ast_elif -> body, identifier_num,
                           Ast -> ast_elif -> body_length);
             replace_by_stack(identifiers, Ast -> ast_elif -> condition, identifier_num);
+            break;
         case AST            :
             multi_replace(identifiers, Ast -> ast, identifier_num,
                           Ast -> length );
+            break;
         case REG            : break;
         case STACK_POS      : break;
         case ZNUMBER        : break;

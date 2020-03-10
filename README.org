@@ -1,61 +1,62 @@
 #+TITLE: Zdeta
-** Presentation
+* Presentation
 Zdeta is a little High-level language inspired by Ruby, Python, Ocaml etc. The
-compiler is written in C and transpiles to C. It is meant to be simple,
-beginner-friendly and not frustrating. I had the idea of creating Zdeta after
-trying Rust, I was very frustrated because of all the errors.
-** Exapmles
+compiler is written in C and compiles to nasm assembly. It is meant to be
+simple, beginner-friendly and not frustrating. I had the idea of creating Zdeta
+after trying Rust, I was very frustrated because of all the errors.
+* Exapmles
 Here is the classical Hello world in Zdeta:
 #+BEGIN_SRC
 print "Hello World!"
 #+END_SRC
-You can notice that there is no parentheses between the function and the argument like in ocaml or ruby. You can also notice that there is no semicolon at the end of the line. Here is a brute force search algorithm:
+You can notice that there is no parentheses between the function and the
+argument like in ocaml or ruby. You can also notice that there is no semicolon
+at the end of the line. Here is a brute force search algorithm:
 #+BEGIN_SRC
-array = [3, 4, 1, 7, 0, 0]
-i = 0
-j = 0
-buf = 0
-while i < 6
-    while j < 6
-        if array[j] > array[i]
-           buf = array[i]
-           array[i] = array[j]
-           array[j] = buf
-        end
-        j++
-    end
-    i++
-    j = i
-end
+let array = [3 4 1 7 0]
+let i = 0
+let j = 0
+let buf = 0
+while i < 5
+    while j < 5
+        if array::j > array::i
+            buf = array::i
+            array::i = array::j
+            array::j = buf
+        j = j + 1
+    i = i + 1
+    j = 0
 print array
+
 #+END_SRC
 Let's take it part by part:
 #+BEGIN_SRC
-array = [3; 4; 1; 7; 0; 0]
+let array = [3 4 1 7 0 0]
 #+END_SRC
-Here we declare the array we want to sort, the elements are separated by a coma. We don't need to use a let or int keyword.
+Here we declare the array we want to sort, the elements are separated by a
+space. Every variable is defined using the let keyword but without declaring the
+type.
 #+BEGIN_SRC
-i = 0
-j = 0
-buf = 0
+let i = 0
+let j = 0
+let buf = 0
 #+END_SRC
-Here we declare the other variables. You may have noticed that we declare and
-affect the variables at the same type.
+Here we declare the other variables.
 #+BEGIN_SRC
-while i < 6
-    while j < 6
-        if array[j] > array[i]
-           buf = array[i]
-           array[i] = array[j]
-           array[j] = buf
-        end
-        j++
-    end
-    i++
-    j = i
-end
+while i < 5
+    while j < 5
+        if array::j > array::i
+            buf = array::i
+            array::i = array::j
+            array::j = buf
+        j = j + 1
+    i = i + 1
+    j = 0
 #+END_SRC
-Here are the main loops, you've probably noticed that you don't have to put a ":" after conditions nor loops but at the end of each control structure you have to put the keyword end (like in matlab).
+Here is the main loop, you've probably noticed that you don't have to put a
+":" after conditions nor loops and there are no parenthesis around the
+conditions. The elements of an array are used using "::" followed with the index
+we want to access.
 #+BEGIN_SRC
 print array
 #+END_SRC
