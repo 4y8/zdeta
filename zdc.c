@@ -145,7 +145,7 @@ struct reg { // the structure of a register and its name
     enum variable_type type;
 };
 char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
-char symbols[11] = {'(',')','{','}','"','[',']',',','#','\n', ':'}; // List of all symbols
+char symbols[12] = {'(',')','{','}','"','[',']',',','#','\n', ':', ';'}; // List of all symbols
 char *keywords[12] = {"let", "print", "while", "if", "else",
                   "elif", "string", "match", "iter", "read", "int", "include"}; // List of keybords
 FILE *fp1, *outfile;
@@ -185,7 +185,7 @@ iskeyword (char in[])
 static int
 isinchars(char in[], char check)
 {
-    for (int i = 0; i < 11; i++) if (in[i] == check) return 1;
+    for (int i = 0; i < 12; i++) if (in[i] == check) return 1;
     return 0;
 }
 
@@ -283,9 +283,8 @@ void freeall(struct leaf *Ast){
                 body_length = Ast -> ast_functiondeclaration -> body_length;
                 body = Ast -> ast_functiondeclaration -> body;
             }
-            for (int i = 0; i < body_length; i++){
+            for (int i = 0; i < body_length; i++)
                 freeall(body + i);
-            }
             free(body);
             if (has_condition) {
                 freeall(condition);
@@ -316,10 +315,8 @@ void freeall(struct leaf *Ast){
             free(Ast -> ast_identifier);
             break;
         case AST:
-            for (int i = 0; i < Ast -> ast -> length; i++){
-                freeall(Ast -> ast);
-                Ast -> ast ++;
-            }
+            for (int i = 0; i < Ast -> ast -> length; i++)
+                freeall(Ast -> ast + i);
             break;
         case REG:
             free(Ast -> ast_register -> name);
@@ -700,6 +697,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     free(argbody.body);
                     size ++;
                     break;
+
+                case ';':
                 case '\n':
                     current_operator --;
                     while (current_operator >= 0) {
@@ -730,10 +729,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     (Ast + aindex) -> length = argbody.size;
                     aindex ++;
                     while ((strcmp("}", (tokens + size) -> value)) && (size <= lex.size)) size ++;
-                    break;
-                case '}':
-                case ')':
-                    size ++;
                     break;
                 case '[':
                     size ++;
@@ -822,25 +817,36 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> type = IFSTATEMENT;
                 lex.base_value = size + 1; // Remove the if token
                 struct parse argcondition = parsestatement(lex, "\n", -1); // First parses the condition
-                while(((tokens + size) -> value)[0] != '\n') size ++; // remove tokens until we reached \n
+                while(((tokens + size) -> value)[0] != '\n' && strcmp((tokens + size) -> value, "switch_indent")) size ++; // remove tokens until we reached \n
                 lex.base_value = size + 1; // Remove the \n token
-                struct parse argbody = parsestatement(lex, "switch_indent", -1); // Now parses the body
-                (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf)); // Allocate memory for the condition and the body
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0); // Copy the condition to the AST
-                for (int i = 0; i < argbody.size; i ++) // Now add the body to the AST
-                    move_ast(argbody.body, (Ast + aindex) -> ast_if -> body, i, i);
-                (Ast + aindex) -> ast_if -> body_length = argbody.size;
-                int i = 0;
-                used_structures = argbody.used_structures;
-                while (i <= argbody.used_structures)
-                {
-                    if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
-                    size ++;
-                } // Move until the end of the indent block
-                size --;
-                free(argbody.body); // Free the memory we don't need
-                freeall(argcondition.body);
+                if (argcondition.size == 0) error("if needs a condition");
+                else if (argcondition.size == 1) {
+                    struct parse argbody = parsestatement(lex, "switch_indent", -1); // Now parses the body
+                    (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf)); // Allocate memory for the condition and the body
+                    move_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0); // Copy the condition to the AST
+                    for (int i = 0; i < argbody.size; i ++) // Now add the body to the AST
+                        move_ast(argbody.body, (Ast + aindex) -> ast_if -> body, i, i);
+                    (Ast + aindex) -> ast_if -> body_length = argbody.size;
+                    used_structures = argbody.used_structures;
+                    int i = 0;
+                    while (i <= argcondition.used_structures)
+                    {
+                        if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
+                        size ++;
+                    } // Move until the end of the indent block
+                    size --;
+                    free(argbody.body); // Free the memory we don't need
+                }
+                else {
+                    puts("ee");
+                    (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(sizeof(struct leaf)); // Allocate memory for the body
+                    move_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0); // Copy the condition to the AST
+                    move_ast(argcondition.body, (Ast + aindex) -> ast_if -> body, 1, 0);
+                    (Ast + aindex) -> ast_if -> body_length = 1;
+                    puts((Ast + aindex) -> ast_if -> body -> ast_function -> function);
+                    used_structures = argcondition.used_structures;
+                }
                 free(argcondition.body);
             }
             else if (strcmp(token.value, "while") == 0)
@@ -937,6 +943,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     /* If we call read without an argument, print nothing */
                     else (Ast + aindex) -> ast_function -> body_length = 0;
                     while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
+                    size --;
                 } else if (!strcmp(token.value, "int")) {
                     argbody = parsestatement (lex, "\n", 1);
                     if (argbody.size == 0) error("The function int needs an argument.");
