@@ -3,12 +3,12 @@ let i = 0
 let j = 0
 let buf = 0
 while i < 5
-  while j < 5
-    if array::j > array::i
-      buf = array::i
-      array::i = array::j
-      array::j = buf
-    j = j + 1
-  i = i + 1
-  j = 0
+    while j < 5
+        if array::j > array::i
+            buf = array::i
+            array::i = array::j
+            array::j = buf
+        j = j + 1
+    i = i + 1
+    j = 0
 print array

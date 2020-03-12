@@ -144,8 +144,8 @@ struct reg { // the structure of a register and its name
     char              *name;
     enum variable_type type;
 };
-char opps[11] = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
-char symbols[12] = {'(',')','{','}','"','[',']',',','#','\n', ':', ';'}; // List of all symbols
+char opps[11]      = {'>','<', '=', '!', '+', '/', '-', '%','^', '*','<'}; // List of all operators
+char symbols[11]   = {'(',')','{','}','"','[',']','#','\n', ':', ';'}; // List of all symbols
 char *keywords[12] = {"let", "print", "while", "if", "else",
                   "elif", "string", "match", "iter", "read", "int", "include"}; // List of keybords
 FILE *fp1, *outfile;
@@ -158,7 +158,6 @@ int arg_number[10];
 
 /*
  * The following functions are utils used by the compiler itself.
- *
  */
 
 static void
@@ -178,14 +177,16 @@ warning(char warning[])
 static int
 iskeyword (char in[])
 {
-    for (int i = 0; i < 11; i++) if (strcmp(keywords[i], in) == 0) return 1;
+    for (int i = 0; i < 11; i++)
+        if (strcmp(keywords[i], in) == 0) return 1;
     return 0;
 }
 // A function to check if a char is in a char list
 static int
 isinchars(char in[], char check)
 {
-    for (int i = 0; i < 12; i++) if (in[i] == check) return 1;
+    for (int i = 0; i < 11; i++)
+        if (in[i] == check) return 1;
     return 0;
 }
 
@@ -193,7 +194,8 @@ isinchars(char in[], char check)
 static int
 is_in_strings(char in[], char list[][10], int length)
 {
-    for (int i = 0; i < length; i++) if (strcmp(list[i], in) == 0) return 1 + i;
+    for (int i = 0; i < length; i++)
+        if (strcmp(list[i], in) == 0) return 1 + i;
     return 0;
 }
 
@@ -525,15 +527,12 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
         else if (isinchars(symbols, c)){
             if (c == '"'){
                 j = ftell(fp1);
-                i = 0;
-                c = fgetc(fp1);
-                while (c != '"'){
-                    i++;
+                do
                     c = fgetc(fp1);
-                }
+                while(c != '"');
                 l = ftell(fp1);
                 fseek(fp1, j, SEEK_SET);
-                fgets(buffer, i + 1, fp1);
+                fgets(buffer, l - j, fp1);
                 fseek(fp1, l, SEEK_SET);
                 (tokens + k) -> type = 5;
                 strcpy ((tokens + k) -> value, buffer);
@@ -616,13 +615,13 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     struct leaf *arg2;
     struct leaf *Ast;
     struct token *tokens = lex.tokens;
-    struct token operators[5];
+    struct token operators[10];
     int aindex = 0;
     int size = lex.base_value;
     int current_operator = 0;
     int used_structures = 0;
 
-    for (int i = 0; i < 5; i++) strcpy(operators[i].value, " ");
+    for (int i = 0; i < 10; i++) strcpy(operators[i].value, " ");
     Ast = (struct leaf*) malloc(30 * sizeof(struct leaf));
     while (size <= lex.size){
         if (size > 0)
@@ -686,8 +685,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             struct parse argbody;
             switch (token.value[0]) {
                 case '(':
-                    size ++;
-                    lex.base_value = size;
+                    lex.base_value = size + 1;
                     argbody = parsestatement(lex, ")", -1);
                     for (int i = 0; i < argbody.size; i ++){
                         move_ast(argbody.body, Ast + aindex, i, i);
@@ -697,7 +695,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     free(argbody.body);
                     size ++;
                     break;
-
                 case ';':
                 case '\n':
                     current_operator --;
@@ -839,13 +836,11 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     free(argbody.body); // Free the memory we don't need
                 }
                 else {
-                    puts("ee");
                     (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(sizeof(struct leaf)); // Allocate memory for the body
                     move_ast(argcondition.body, (Ast + aindex) -> ast_if -> condition, 0, 0); // Copy the condition to the AST
                     move_ast(argcondition.body, (Ast + aindex) -> ast_if -> body, 1, 0);
                     (Ast + aindex) -> ast_if -> body_length = 1;
                     puts((Ast + aindex) -> ast_if -> body -> ast_function -> function);
-                    used_structures = argcondition.used_structures;
                 }
                 free(argcondition.body);
             }
@@ -889,10 +884,10 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 free(argbody.body);
                 int i = 0;
                 used_structures = argbody.used_structures;
-                do {
+                while (i <= argbody.used_structures) {
                     if (!strcmp("switch_indent", (tokens + size) -> value)) i ++;
                     size ++;
-                } while (i <= argbody.used_structures);
+                }
                 size --;
             }
             else if (strcmp(token.value, "elif") == 0){
@@ -965,7 +960,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
             if (index_of_function)
             {
                 lex.base_value = size + 1;
-                struct parse argbody = parsestatement (lex, "", arg_number[index_of_function - 1]);
+                struct parse argbody = parsestatement (lex, " ", arg_number[index_of_function - 1]);
                 (Ast + aindex) -> type = FUNCTION_CALL;
                 (Ast + aindex) -> ast_function = (struct functioncall *) malloc(sizeof(struct functioncall));
                 (Ast + aindex) -> ast_function -> body_length = arg_number[index_of_function - 1];
@@ -973,7 +968,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(arg_number[index_of_function - 1] * sizeof(struct leaf));
                 if (argbody.size < arg_number[index_of_function - 1]) error("Not enough argument for a function");
                 for(int i = 0; i < arg_number[index_of_function - 1]; i ++)
-                    move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
+                    move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, i, i);
                 size += 1 + argbody.used_tokens;
                 free(argbody.body);
             }
@@ -1675,7 +1670,7 @@ epilog(int is_lib)
 int
 main ( int argc, char *argv[] )
 {
-    if (argc < 2) exit(1); // If we don't have a file to compile exit.
+    if (argc < 2) error("There is no file to compile."); // If we don't have a file to compile exit.
     char *linker       = malloc(256 * sizeof(*linker)),
          *linker_flags = malloc(256 * sizeof(*linker_flags)),
          *outcommand   = malloc (sizeof(*outcommand) * 256);
@@ -1701,8 +1696,8 @@ main ( int argc, char *argv[] )
     symbol_table  = malloc(SYMBOL_TABLE_SIZE * sizeof(struct variable)); // Initialize the symbol table and the ASTs of the program
     for (int i = 0; i < SYMBOL_TABLE_SIZE; i++) (symbol_table + i) -> is_static = 0;
     outfinal.size = 0;
-    outfinal.body = malloc(20 * sizeof(struct leaf));
-    while(1)
+    outfinal.body = malloc(AST_SIZE * sizeof(struct leaf));
+    for(;;)
     {
         struct token *tokens;
         tokens = malloc(100 * sizeof(struct token));
