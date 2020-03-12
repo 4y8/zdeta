@@ -46,6 +46,8 @@ struct token
 {
     enum type type;
     char      value[50];
+    int       linum;
+    long      position;
 };
 // Define the structure for a list of tokens
 struct lexline {
@@ -152,6 +154,7 @@ FILE *fp1, *outfile;
 struct variable *symbol_table;
 int varind           = 0, // Keep track of the actual free symbol table place
     indentlevel      = 0,
+    linum            = 1,
     number_functions = 0;
 char custom_functions[10][10];
 int arg_number[10];
@@ -160,9 +163,44 @@ int arg_number[10];
  * The following functions are utils used by the compiler itself.
  */
 
-static void
-error(char error[])
+static int
+digitnum(int number)
 {
+    int digitnum = 0;
+
+    while(number != 0){
+        digitnum ++;
+        number/=10;
+    }
+    return digitnum;
+}
+
+static void
+error(char error[], int local_linum, long offset)
+{
+    char c = ' ';
+    int linum_digit = digitnum(local_linum);
+    long chars;
+
+    fseek(fp1, offset, SEEK_SET);
+    do {
+        c = fgetc(fp1);
+        fseek(fp1, -2, SEEK_CUR);
+    } while(c != '\n' && ftell(fp1) > 0);
+    if (ftell(fp1) > 0) fseek(fp1, 2, SEEK_CUR);
+    chars = ftell(fp1);
+    for(int i = 0; i <= linum_digit; i++) printf(" ");
+    printf("\033[1;35m|\n%d |\033[0m ", local_linum);
+    do {
+        c = fgetc(fp1);
+        if (ftell(fp1) == offset) printf("\033[1;31m");
+        else if (c == ' ')        printf("\033[0m");
+        putchar(c);
+    } while (c != '\n');
+    for(int i = 0; i <= linum_digit; i++) printf(" ");
+    printf("\033[1;35m|\033[0m");
+    for (int i = 0; i < offset - chars; i++) printf(" ");
+    puts("\033[1;31m^\033[0m");
     printf("\033[1;31mError\033[0m : %s\n", error);
     exit(1);
 }
@@ -240,7 +278,7 @@ varindex (char var[])
     for (int i = 0; i < SYMBOL_TABLE_SIZE; i++)
         if (strcmp((symbol_table + i) -> name, var) == 0)
             return i;
-    error("Using non declarated variable.");
+    error("Using non declarated variable.", 0, 0);
 }
 
 void freeall(struct leaf *Ast){
@@ -471,6 +509,8 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
     char conv[2] = {'a', '\0'};
     while (c != EOF){
         c = fgetc(fp1);
+        (tokens + k) -> linum    = linum;
+        (tokens + k) -> position = ftell(fp1);
         char d = ' ';
         if (isalpha(c)){
             j = ftell(fp1);
@@ -491,7 +531,7 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
         else if (isdigit(c)){
             j = ftell(fp1);
             i = 0;
-            while ((c != ' ') && (c != '\n') && (!isinchars(symbols, c)) && (!isinchars(opps, c))){
+            while ((c != ' ') && (c != '\n') && (!isinchars(symbols, c)) && (!isinchars(opps, c)) && isdigit(c)){
                 i++;
                 c = fgetc(fp1);
             }
@@ -505,7 +545,7 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
         }
         else if (isinchars(opps, c)){
             if (k >= 1)
-                if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '=')) error("Unexpected combination of opperators");
+                if (((tokens + k - 1) -> type == 0) && ((tokens + k - 1) -> value [0] != '=')) error("Unexpected combination of opperators", linum, ftell(fp1));
             (tokens + k) -> type = 0;
             d = fgetc(fp1);
             if ((c == '=') && (d == '=')) strcpy((tokens + k) -> value, "==");
@@ -515,6 +555,7 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
             else if ((c == '!') && (d == '=')) strcpy((tokens + k) -> value, "!=");
             else if ((c == '/') && (d == '/')){
                 while (c != '\n') c = fgetc(fp1);
+                linum ++;
                 k --;
             }
             else{
@@ -538,9 +579,10 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
                 strcpy ((tokens + k) -> value, buffer);
             }
             else if (c == '#'){
-                do
+                do {
                     c = fgetc(fp1);
-                while (c != '#');
+                    if (c == '\n') linum ++;
+                } while (c != '#');
                 k --;
                 c = fgetc(fp1);
             }
@@ -565,6 +607,7 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
                 conv[0] = c;
                 strcpy((tokens + k) -> value, conv);
                 if(c == '\n'){
+                    linum ++;
                     long indent = ftell(fp1);
                     do
                         c = fgetc(fp1);
@@ -755,7 +798,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         } else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
                 if ((tokens + size + 1) -> type != 2)
-                    error("Can't assign to something that is not an identifier.");
+                    error("Can't assign to something that is not an identifier.",0,0);
                 int is_function = 0;
                 int size_before = size;
                 while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) { // We first search if we have a "=>" token on the line
@@ -820,7 +863,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 while(((tokens + size) -> value)[0] != '\n' && strcmp((tokens + size) -> value, "switch_indent")) size ++; // remove tokens until we reached \n
                 lex.base_value = size + 1; // Remove the \n token
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-                if (argcondition.size == 0) error("if needs a condition");
+                if (argcondition.size == 0) error("if needs a condition",0,0);
                 else if (argcondition.size == 1) {
                     struct parse argbody = parsestatement(lex, "switch_indent", -1); // Now parses the body
                     (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf)); // Allocate memory for the condition and the body
@@ -937,7 +980,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                             (Ast + aindex) -> ast_function -> body_length = 1;
                             copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                         }
-                    } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
+                    } else if (strcmp(token.value, "read")) error("Using the print function without an argument",0,0);
                     /* If we call read without an argument, print nothing */
                     else (Ast + aindex) -> ast_function -> body_length = 0;
                     while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
@@ -945,7 +988,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     freeall(argbody.body);
                 } else if (!strcmp(token.value, "int")) {
                     argbody = parsestatement (lex, "\n", 1);
-                    if (argbody.size == 0) error("The function int needs an argument.");
+                    if (argbody.size == 0) error("The function int needs an argument.",0,0);
                     strcpy((Ast + aindex) -> ast_function -> function, "int");
                     (Ast + aindex) -> ast_function -> body_length = 1;
                     (Ast + aindex) -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
@@ -970,7 +1013,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> ast_function -> body_length = arg_number[index_of_function - 1];
                 strcpy((Ast + aindex) -> ast_function -> function, token.value);
                 (Ast + aindex) -> ast_function -> body = (struct leaf *) malloc(arg_number[index_of_function - 1] * sizeof(struct leaf));
-                if (argbody.size < arg_number[index_of_function - 1]) error("Not enough argument for a function");
+                if (argbody.size < arg_number[index_of_function - 1]) error("Not enough argument for a function",0,0);
                 for(int i = 0; i < arg_number[index_of_function - 1]; i ++)
                     move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, i, i);
                 size += 1 + argbody.used_tokens;
@@ -1031,11 +1074,11 @@ check(struct leaf *Ast)
     if (Ast -> type == FUNCTION_CALL){
         if (strcmp(Ast -> ast_function -> function, "=") == 0)
             if (Ast -> ast_function -> body -> type != ZIDENTIFIER)
-                error("assigning a value to a non variable element.");
+                error("assigning a value to a non variable element.",0,0);
     }
     else if (Ast -> type == ELSESTATEMENT) {
         if (((Ast - 1) -> type != IFSTATEMENT) && ((Ast - 1) -> type != ELIFSTATEMENT))
-            error("using an else without an if.");
+            error("using an else without an if.",0,0);
     }
     return;
 }
@@ -1185,7 +1228,7 @@ compile (struct leaf *Ast)
                     else if (Ast -> ast_function -> body -> type == ZIDENTIFIER)
                         if ((symbol_table + varindex(Ast -> ast_function -> body -> ast_identifier -> name)) -> type == CHAR_LIST) is_string_add = 1;
                     Ast -> ast_function -> body ++;
-                    if ((Ast -> ast_function -> body -> type == ZNUMBER) && (is_string_add)) error("Adding a string and a number.");
+                    if ((Ast -> ast_function -> body -> type == ZNUMBER) && (is_string_add)) error("Adding a string and a number.",0,0);
                     struct reg arg2 = compile (Ast -> ast_function -> body);
                     Ast -> ast_function -> body --;
                     if (is_string_add) {
@@ -1281,8 +1324,8 @@ compile (struct leaf *Ast)
                                     (symbol_table + index) -> type = arg.type;
                                     (symbol_table + index) -> is_static = 0;
                                 }
-                                else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0)) error("Assigning a single value to an array.");
-                                else if ((symbol_table + index) -> type != 0) error("Changed type of variable");
+                                else if (((symbol_table + index) -> array_length != 0) && (index_of_identifier == 0)) error("Assigning a single value to an array.",0,0);
+                                else if ((symbol_table + index) -> type != 0) error("Changed type of variable",0,0);
                                 if (arg.type == 0) fprintf (outfile, "\tmov\t[%s + 8 * %s], %s\n", (symbol_table + index) -> name, index_of_var, arg.name);
                                 else fprintf(outfile, "\tmov\trdi, %s\n\tmov\trsi, %s\n\tmov\trdx, 256\n\tcall\tstrncpy\n", (symbol_table + index) -> name, arg.name);
                                 free(index_of_var);
@@ -1316,7 +1359,7 @@ compile (struct leaf *Ast)
                             int string_length = strlen(Ast -> ast_function -> body -> ast_string -> value);          // If it's a string first gets it size
                             if ((symbol_table + index) -> type == -1) (symbol_table + index) -> type = CHAR_LIST;    // Then if the variable haven't been initialize yet give it the string type
                             else if ((symbol_table + index) -> type != CHAR_LIST)                                    // If it has been initialized with another type, throw an error and exit
-                                error("changing variable type.");
+                                error("changing variable type.",0,0);
                             if ((symbol_table + index) -> array_length < string_length)
                                 (symbol_table + index) -> array_length = string_length + 1;
                             for (int i = 0; i < string_length; i ++)
@@ -1406,7 +1449,7 @@ compile (struct leaf *Ast)
                     } else if (!strcmp("int", Ast -> ast_function -> function)) {
                         if (Ast -> ast_function -> body -> type == ZIDENTIFIER) // Return an error if the input is an array
                             if ((symbol_table + varindex (Ast -> ast_function -> body -> ast_identifier -> name)) -> array_length != 0)
-                                error("Can't convert an array to an integer");
+                                error("Can't convert an array to an integer", 0, 0);
                         struct reg arg = compile(Ast -> ast_function -> body);
                         outreg.type = INTEGER;
                         if (arg.type == INTEGER) {
@@ -1539,7 +1582,7 @@ compile (struct leaf *Ast)
         {
             int index = varindex (Ast -> ast_identifier -> name);
             int reg = new_register();
-            if ((symbol_table + index) -> type == -1) error("used unisialized variable");
+            if ((symbol_table + index) -> type == -1) error("used unisialized variable",0,0);
             else if ((symbol_table + index) -> type == INTEGER) {
                 if (Ast -> ast_identifier -> has_index == 1) {
                     char *index = compile(Ast -> ast_identifier -> index).name;
@@ -1674,7 +1717,7 @@ epilog(int is_lib)
 int
 main ( int argc, char *argv[] )
 {
-    if (argc < 2) error("There is no file to compile."); // If we don't have a file to compile exit.
+    if (argc < 2) error("There is no file to compile.",0,0); // If we don't have a file to compile exit.
     char *linker       = malloc(256 * sizeof(*linker)),
          *linker_flags = malloc(256 * sizeof(*linker_flags)),
          *outcommand   = malloc (sizeof(*outcommand) * 256);
@@ -1686,7 +1729,7 @@ main ( int argc, char *argv[] )
     if (argc >= 3) {
         if (!strcmp(argv[2], "-lib")) is_lib = 1;
         if (!strcmp(argv[2], "-o")) {
-            if (argc < 4) error("the -o option need an argument");
+            if (argc < 4) error("the -o option need an argument",0,0);
             sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o  %s && rm out.asm && rm out.o", linker, argv[3], linker_flags);
         } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out && rm out.asm && rm out.o", linker, linker_flags);
     } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out && rm out.asm && rm out.o", linker, linker_flags);
@@ -1714,7 +1757,6 @@ main ( int argc, char *argv[] )
         if (out.size == -1) break;
         free(out.body);
     }
-    fclose(fp1);
     for (int i = 0; i < outfinal.size; i++) {
         check(outfinal.body);
         free(compile(outfinal.body).name);
@@ -1731,5 +1773,6 @@ main ( int argc, char *argv[] )
     free(outcommand);
     free(linker_flags);
     free(linker);
+    fclose(fp1);
     return 0;
 }
