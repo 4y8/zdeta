@@ -538,8 +538,9 @@ lexer(FILE *fp1, int min_indent, struct token *tokens)
                 strcpy ((tokens + k) -> value, buffer);
             }
             else if (c == '#'){
-                c = fgetc(fp1);
-                while (c != '#') c = fgetc(fp1);
+                do
+                    c = fgetc(fp1);
+                while (c != '#');
                 k --;
                 c = fgetc(fp1);
             }
@@ -673,6 +674,8 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     ((Ast + aindex - 2) -> ast_function ) -> body_length = 2;
                     aindex --;
                     current_operator --;
+                    freeall(arg2);
+                    free(arg2);
                 }
                 else break;
             }
@@ -919,26 +922,27 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 (Ast + aindex) -> type = FUNCTION_CALL;
                 strcpy((Ast + aindex) -> ast_function -> function, token.value);
                 if ((!strcmp(token.value, "print")) || (!strcmp(token.value, "read"))) {
-                    argbody = parsestatement (lex, "\n", -1);
+                    argbody = parsestatement (lex, "\n", 1);
                     if (argbody.size != 0) {
                         (Ast + aindex) -> ast_function -> body_length = 1;
                         /* If read is called with an argument, we print the argument and then call read */
                         if (!strcmp(token.value, "read")) {
                             (Ast + aindex) -> ast_function -> body -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                            move_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
+                            copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
                             (Ast + aindex) -> ast_function -> body -> type = FUNCTION_CALL;
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
                             strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
                         } else {
                             (Ast + aindex) -> ast_function -> body_length = 1;
-                            move_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
+                            copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                         }
                     } else if (strcmp(token.value, "read")) error("Using the print function without an argument");
                     /* If we call read without an argument, print nothing */
                     else (Ast + aindex) -> ast_function -> body_length = 0;
                     while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
                     size --;
+                    freeall(argbody.body);
                 } else if (!strcmp(token.value, "int")) {
                     argbody = parsestatement (lex, "\n", 1);
                     if (argbody.size == 0) error("The function int needs an argument.");
@@ -1035,7 +1039,7 @@ check(struct leaf *Ast)
     }
     return;
 }
-void multi_replace(char identifiers[][10], struct leaf *Ast, int identifier_num, int ast_size);
+static void multi_replace(char identifiers[][10], struct leaf *Ast, int identifier_num, int ast_size);
 // Functions for the actual compiler
 void
 replace_by_stack (char identifiers[][10], struct leaf *Ast, int identifier_num)
@@ -1091,7 +1095,7 @@ replace_by_stack (char identifiers[][10], struct leaf *Ast, int identifier_num)
     }
 }
 
-void
+static void
 multi_replace(char identifiers[][10], struct leaf *Ast, int identifier_num, int ast_size)
 {
     for (int i = 0; i < ast_size; i++)
@@ -1102,27 +1106,27 @@ int number_stings = 0, used_registers = 0, number_cmp = 0, nubmer_structures = 0
 int used_functions[1] = {0};
 static char arg_func_list[6][10] = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
 
-int
+static int
 new_register (void)
 {
     used_registers ++;
     return used_registers - 1;
 }
 
-void
+static void
 free_register (void)
 {
     if (used_registers > 0) used_registers --;
 }
 
-void
+static void
 save_registers (void)
 {
     fprintf(outfile, "\tpush\trax\n"); // Save registers on the stack
     for (int i = 0; i < 8; i++) fprintf(outfile, "\tpush\t%s\n", reglist[i]);
 }
 
-void
+static void
 restore_registers (void)
 {
     for (int i = 7; i >= 0; i--) fprintf(outfile, "\tpop\t%s\n", reglist[i]); // Restore the arguments from the stack
@@ -1724,5 +1728,8 @@ main ( int argc, char *argv[] )
     fclose(outfile);    // Close the output file
     if (!is_lib) system(outcommand); //Assemble and link the produced program if it's not a library
     printf("\033[1;32mDone!\033[0m\n");
+    free(outcommand);
+    free(linker_flags);
+    free(linker);
     return 0;
 }
