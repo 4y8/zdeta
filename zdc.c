@@ -176,36 +176,6 @@ digitnum(int number)
 }
 
 static void
-error(char error[], int local_linum, long offset)
-{
-    char c = ' ';
-    int linum_digit = digitnum(local_linum);
-    long chars;
-
-    fseek(fp1, offset, SEEK_SET);
-    do {
-        c = fgetc(fp1);
-        fseek(fp1, -2, SEEK_CUR);
-    } while(c != '\n' && ftell(fp1) > 0);
-    if (ftell(fp1) > 0) fseek(fp1, 2, SEEK_CUR);
-    chars = ftell(fp1);
-    for(int i = 0; i <= linum_digit; i++) printf(" ");
-    printf("\033[1;35m|\n%d |\033[0m ", local_linum);
-    do {
-        c = fgetc(fp1);
-        if (ftell(fp1) == offset) printf("\033[1;31m");
-        else if (c == ' ')        printf("\033[0m");
-        putchar(c);
-    } while (c != '\n');
-    for(int i = 0; i <= linum_digit; i++) printf(" ");
-    printf("\033[1;35m|\033[0m");
-    for (int i = 0; i < offset - chars; i++) printf(" ");
-    puts("\033[1;31m^\033[0m");
-    printf("\033[1;31mError\033[0m : %s\n", error);
-    exit(1);
-}
-
-static void
 warning(char warning[])
 {
     printf("\033[1;33mError\033[0m : %s\n", warning);
@@ -235,6 +205,37 @@ is_in_strings(char in[], char list[][10], int length)
     for (int i = 0; i < length; i++)
         if (strcmp(list[i], in) == 0) return 1 + i;
     return 0;
+}
+
+static void
+error(char error[], int local_linum, long offset)
+{
+    char c = ' ';
+    int linum_digit = digitnum(local_linum);
+    long chars;
+
+    fseek(fp1, offset, SEEK_SET);
+    do {
+        fseek(fp1, -1, SEEK_CUR);
+        c = fgetc(fp1);
+        fseek(fp1, -1, SEEK_CUR);
+    } while(c != '\n' && ftell(fp1) > 0);
+    if (ftell(fp1) > 0) fseek(fp1, 2, SEEK_CUR);
+    chars = ftell(fp1);
+    for(int i = 0; i <= linum_digit; i++) printf(" ");
+    printf("\033[1;35m|\n%d |\033[0m ", local_linum);
+    do {
+        c = fgetc(fp1);
+        if (ftell(fp1) == offset)                   printf("\033[1;31m");
+        else if (c == ' ' || isinchars(symbols, c)) printf("\033[0m");
+        putchar(c);
+    } while (c != '\n');
+    for(int i = 0; i <= linum_digit; i++) printf(" ");
+    printf("\033[1;35m|\033[0m");
+    for (int i = 0; i < offset - chars; i++) printf(" ");
+    puts("\033[1;31m^\033[0m");
+    printf("\033[1;31mError\033[0m : %s\n", error);
+    exit(1);
 }
 
 /* A function to check the operator precedence of an input string */
@@ -272,6 +273,7 @@ operatorPrecedence (char operator[])
  * Takes the name of a variable and return its position in the symbol table or
  * throws an error if it doesn't exist.
  */
+
 int
 varindex (char var[])
 {
@@ -657,7 +659,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     }
 
     struct leaf *arg2;
-    struct leaf *Ast;
+    struct leaf *Ast = (struct leaf*) malloc(30 * sizeof(struct leaf));
     struct token *tokens = lex.tokens;
     struct token operators[10];
     int aindex = 0;
@@ -666,7 +668,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
     int used_structures = 0;
 
     for (int i = 0; i < 10; i++) strcpy(operators[i].value, " ");
-    Ast = (struct leaf*) malloc(30 * sizeof(struct leaf));
     while (size <= lex.size){
         if (size > 0)
         {
@@ -682,13 +683,17 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         }
         if ((max_length != -1) && (max_length <= aindex)) break;
         struct token token;
-        token.type = (tokens + size) -> type;
+        token.type     = (tokens + size) -> type;
+        token.linum    = (tokens + size) -> linum;
+        token.position = (tokens + size) -> position;
         strcpy(token.value, (tokens + size) -> value);
         if ((strcmp(token.value, terminator2) == 0)){
             size ++;
             break;
         }
         if (token.type == 3){
+            if (aindex > 0 && (Ast + aindex - 1) -> type == ZNUMBER)
+                error("Unexpected combinasion of numbers", token.linum, token.position);
             (Ast + aindex) -> length = 1;
             (Ast + aindex) -> ast_number = (struct number*) malloc(sizeof(struct number));
             (Ast + aindex) -> type = ZNUMBER;
@@ -970,9 +975,12 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                         (Ast + aindex) -> ast_function -> body_length = 1;
                         /* If read is called with an argument, we print the argument and then call read */
                         if (!strcmp(token.value, "read")) {
-                            (Ast + aindex) -> ast_function -> body -> ast_function = (struct functioncall*) malloc(sizeof(struct functioncall));
-                            (Ast + aindex) -> ast_function -> body -> ast_function -> body = (struct leaf*) malloc(sizeof(struct leaf));
-                            copy_ast(argbody.body, ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
+                            (Ast + aindex) -> ast_function -> body -> ast_function =
+                                (struct functioncall*) malloc(sizeof(struct functioncall));
+                            (Ast + aindex) -> ast_function -> body -> ast_function -> body =
+                                (struct leaf*) malloc(sizeof(struct leaf));
+                            copy_ast(argbody.body,
+                                     ((Ast + aindex) -> ast_function -> body -> ast_function -> body), 0, 0);
                             (Ast + aindex) -> ast_function -> body -> type = FUNCTION_CALL;
                             (Ast + aindex) -> ast_function -> body -> ast_function -> body_length= 1;
                             strcpy((Ast + aindex) -> ast_function -> body -> ast_function -> function, "print");
@@ -980,7 +988,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                             (Ast + aindex) -> ast_function -> body_length = 1;
                             copy_ast(argbody.body, (Ast + aindex) -> ast_function -> body, 0, 0);
                         }
-                    } else if (strcmp(token.value, "read")) error("Using the print function without an argument",0,0);
+                    } else if (strcmp(token.value, "read")) error("Using the print function without an argument", token.linum, token.position);
                     /* If we call read without an argument, print nothing */
                     else (Ast + aindex) -> ast_function -> body_length = 0;
                     while ((((tokens + size) -> value)[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) size ++;
