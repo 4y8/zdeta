@@ -156,7 +156,8 @@ int varind           = 0, // Keep track of the actual free symbol table place
     indentlevel      = 0,
     linum            = 1,
     number_functions = 0;
-char custom_functions[10][10];
+char custom_functions[10][10],
+    filename[256];
 int arg_number[10];
 
 /*
@@ -214,6 +215,7 @@ error(char error[], int local_linum, long offset)
     int linum_digit = digitnum(local_linum);
     long chars;
 
+    printf("\033[1;31mError\033[0m : %s\n", error);
     fseek(fp1, offset, SEEK_SET);
     do {
         fseek(fp1, -1, SEEK_CUR);
@@ -234,7 +236,42 @@ error(char error[], int local_linum, long offset)
     printf("\033[1;35m|\033[0m");
     for (int i = 0; i < offset - chars; i++) printf(" ");
     puts("\033[1;31m^\033[0m");
+    exit(1);
+}
+
+static void
+new_error(char error[], int local_linum, long offset, char suggestions[], char error_type[])
+{
+    char c = ' ';
+    int linum_digit = digitnum(local_linum);
+    long chars;
+    char dashes[80];
+
+    for (int i = 0; i < 80 - strlen(filename) - strlen(error_type) - 5; i++)
+        dashes[i] = '-';
+    printf ("\n\033[1;34m-- %s %s %s\n\n", error_type, dashes, filename);
     printf("\033[1;31mError\033[0m : %s\n", error);
+    fseek(fp1, offset, SEEK_SET);
+    do {
+        fseek(fp1, -1, SEEK_CUR);
+        c = fgetc(fp1);
+        fseek(fp1, -1, SEEK_CUR);
+    } while(c != '\n' && ftell(fp1) > 0);
+    if (ftell(fp1) > 0) fseek(fp1, 2, SEEK_CUR);
+    chars = ftell(fp1);
+    for(int i = 0; i <= linum_digit; i++) printf(" ");
+    printf("\033[1;35m|\n%d |\033[0m ", local_linum);
+    do {
+        c = fgetc(fp1);
+        if (ftell(fp1) == offset)                   printf("\033[1;31m");
+        else if (c == ' ' || isinchars(symbols, c)) printf("\033[0m");
+        putchar(c);
+    } while (c != '\n');
+    for(int i = 0; i <= linum_digit; i++) printf(" ");
+    printf("\033[1;35m|\033[0m");
+    for (int i = 0; i < offset - chars; i++) printf(" ");
+    printf("\033[1;31m^\033[0m\n\n");
+    printf("%s\n\n", suggestions);
     exit(1);
 }
 
@@ -803,7 +840,16 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
         } else if (token.type == 4){
             if (strcmp(token.value, "let") == 0){
                 if ((tokens + size + 1) -> type != 2)
-                    error("Can't assign to something that is not an identifier.",0,0);
+                    new_error("Can't assign to something that is not an identifier. You are using a\n"
+                              "        reserved keyword for your variable name.",
+                              token.linum,
+                              token.position,
+                              "Here are some valid variable declarations:\n\n"
+                              "    let \033[1;35mfoo\033[0m\n"
+                              "    let \033[1;35mbar\033[0m = 0\n"
+                              "    let \033[1;35msum\033[0m a b =>\n"
+                              "        a + b",
+                              "INVALID VARIABLE NAME");
                 int is_function = 0;
                 int size_before = size;
                 while (((tokens + size) -> value[0] != '\n') && (strcmp((tokens + size) -> value, "switch_indent"))) { // We first search if we have a "=>" token on the line
@@ -868,7 +914,7 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 while(((tokens + size) -> value)[0] != '\n' && strcmp((tokens + size) -> value, "switch_indent")) size ++; // remove tokens until we reached \n
                 lex.base_value = size + 1; // Remove the \n token
                 (Ast + aindex) -> ast_if -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-                if (argcondition.size == 0) error("if needs a condition",0,0);
+                if (argcondition.size == 0) error("if needs a condition", token.linum, token.position);
                 else if (argcondition.size == 1) {
                     struct parse argbody = parsestatement(lex, "switch_indent", -1); // Now parses the body
                     (Ast + aindex) -> ast_if -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf)); // Allocate memory for the condition and the body
@@ -902,14 +948,20 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                 lex.base_value = size;
                 struct parse argcondition = parsestatement(lex, "\n", -1);
                 while(((tokens + size) -> value)[0] != '\n' ) size ++;
-                lex.base_value = size + 1;
+                lex.base_value       = size + 1;
                 struct parse argbody = parsestatement(lex, "switch_indent", -1);
                 (Ast + aindex) -> type = WHILESTATEMENT;
-                (Ast + aindex) -> ast_while -> body = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
+                (Ast + aindex) -> ast_while -> body      = (struct leaf*) malloc(argbody.size * sizeof(struct leaf));
                 (Ast + aindex) -> ast_while -> condition = (struct leaf*) malloc(sizeof(struct leaf));
-                copy_ast(argcondition.body, (Ast + aindex) -> ast_while -> condition, 0, 0);
                 for (int i = 0; i < argbody.size; i ++)
                     move_ast(argbody.body, (Ast + aindex) -> ast_while -> body, i, i);
+                if (argcondition.size == 0) {
+                    (Ast + aindex) -> type       = ZNUMBER;
+                    (Ast + aindex) -> ast_number = (struct number*) malloc(sizeof(struct number));
+                    (Ast + aindex) -> ast_number -> value = 1;
+                }
+                else
+                    move_ast(argcondition.body, (Ast + aindex) -> ast_while -> condition, 0, 0);
                 (Ast + aindex) -> ast_while -> body_length = argbody.size;
                 free(argbody.body);
                 int i = 0;
@@ -920,7 +972,6 @@ struct parse parsestatement(struct lexline lex, char terminator2[20], int max_le
                     size ++;
                 }
                 size --;
-                freeall(argcondition.body);
                 free(argcondition.body);
             }
             else if (strcmp(token.value, "else") == 0){
@@ -1741,6 +1792,7 @@ main ( int argc, char *argv[] )
             sprintf(outcommand, "nasm -f elf64 ./out.asm && %s -o %s ./out.o  %s && rm out.asm && rm out.o", linker, argv[3], linker_flags);
         } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out && rm out.asm && rm out.o", linker, linker_flags);
     } else sprintf(outcommand, "nasm -f elf64 ./out.asm && %s %s ./out.o -o out && rm out.asm && rm out.o", linker, linker_flags);
+    strcpy(filename, argv[1]);
     fp1     = fopen (argv[1], "r");
     outfile = fopen ("out.asm", "w");
     if (!is_lib) fprintf(outfile,
