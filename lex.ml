@@ -59,3 +59,20 @@ let indent n =
   newline *>
     (get_tab n <$>
        (List.length <$> many tab))
+
+let rec lex s n =
+  let token = keyword <|> indent n in
+  match token s with
+    None -> None
+  | Some ((l, Some n), s) ->
+     begin
+       match lex s n with
+         None -> Some (l, s)
+       | Some (l', _) -> Some (l @ l', [])
+     end
+  | Some ((l, None), s) ->
+     begin
+       match lex s n with
+         None -> Some (l, s)
+       | Some (l', _) -> Some (l @ l', [])
+     end
