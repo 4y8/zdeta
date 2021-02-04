@@ -1,1 +1,4 @@
-(executable (name zdc) (libraries combo))
+(executable
+  (name zdc)
+  (preprocess (pps ppx_deriving.show ppx_deriving.ord))
+  (libraries combo))

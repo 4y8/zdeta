@@ -4,6 +4,7 @@ open Fun
 type token
   = IDENT of string
   | IF
+  | EQUAL
   | ELSE
   | BBLOCK
   | EBLOCK
@@ -60,8 +61,11 @@ let indent n =
     (get_tab n <$>
        (List.length <$> many tab))
 
+let equal =
+  return (no_indent EQUAL) <* char '='
+
 let rec lex s n =
-  let token = keyword <|> indent n in
+  let token = keyword <|> indent n <|> equal in
   match token s with
     None -> None
   | Some ((l, Some n), s) ->
